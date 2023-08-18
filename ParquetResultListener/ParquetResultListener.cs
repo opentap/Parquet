@@ -8,8 +8,9 @@ using System.Threading.Tasks;
 namespace ParquetResultListener
 {
     [Display("ParquetResultListener")]
-    public class ParquetResultListener : ResultListener
+    public sealed class ParquetResultListener : ResultListener
     {
+        private Dictionary<Guid, string> _planGuidToDirectoryName = new Dictionary<Guid, string>(); 
         private Dictionary<Guid, TestPlanRun> _guidToPlanRuns = new Dictionary<Guid, TestPlanRun>();
         private Dictionary<Guid, TestStepRun> _guidToStepRuns = new Dictionary<Guid, TestStepRun>();
         private Dictionary<Schema, ParquetFile> _schemaToFiles = new Dictionary<Schema, ParquetFile>();
@@ -27,11 +28,21 @@ namespace ParquetResultListener
         public override void Close()
         {
             base.Close();
+            _planGuidToDirectoryName.Clear();
+            _guidToPlanRuns.Clear();
+            _guidToStepRuns.Clear();
+            _schemaToFiles.Clear();
         }
 
         public override void OnTestPlanRunStart(TestPlanRun planRun)
         {
             base.OnTestPlanRunStart(planRun);
+            string dirName = $"Results/{planRun.TestPlanName}{planRun.StartTime.ToString("yy-MM-dd-HH-mm-ss")}";
+            if (!Directory.Exists(dirName))
+            {
+                Directory.CreateDirectory(dirName);
+            }
+            _planGuidToDirectoryName[planRun.Id] = dirName;
             _guidToPlanRuns[planRun.Id] = planRun;
         }
 
@@ -57,35 +68,35 @@ namespace ParquetResultListener
             TestStepRun stepRun = _guidToStepRuns[stepRunId];
             TestPlanRun planRun = GetPlanRun(stepRun);
 
-            Schema schema = CreateSchemaFromTable(result);
+            Schema schema = CreateSchemaFromResult(stepRun, result);
             if (!_schemaToFiles.TryGetValue(schema, out ParquetFile? file))
             {
-                string dirName = $"Results/{planRun.TestPlanName}{planRun.StartTime.ToString("yy-MM-dd-HH-mm-ss")}";
-                string fileName = $"{stepRun.TestStepTypeName}.parquet";
-                if (!Directory.Exists(dirName))
-                {
-                    Directory.CreateDirectory(dirName);
-                }
+                string dirName = _planGuidToDirectoryName[planRun.Id];
+                string fileName = $"{stepRun.TestStepName}.parquet";
                 file = new ParquetFile($"{dirName}/{fileName}", schema);
                 _schemaToFiles.Add(schema, file);
             }
-            file.PublishResult(result);
+            file.PublishResult(stepRun, result);
         }
 
-        private Schema CreateSchemaFromTable(ResultTable result)
+        private Schema CreateSchemaFromResult(TestStepRun stepRun, ResultTable result)
         {
-            List<Field> fields = new List<Field>();
+            SchemaBuilder schemaBuilder = new SchemaBuilder();
+
+            schemaBuilder.AppendGuid("Guid");
+            schemaBuilder.AppendGuid("Parent");
+
+            foreach (ResultParameter parameter in stepRun.Parameters)
+            {
+                schemaBuilder.AppendStep(parameter.Value, parameter.Name);
+            }
 
             foreach (ResultColumn column in result.Columns)
             {
-                if (column.Data is not null && column.Data.Length != 0)
-                {
-                    fields.Add(new DataField(column.Name, column.Data.GetValue(0).GetType()));
-                }
+                schemaBuilder.TryAppendResult(column.Data, column.Name);
             }
 
-            Schema schema = new Schema(fields);
-            return schema;
+            return schemaBuilder.Build();
         }
 
         private TestPlanRun GetPlanRun(TestStepRun run)
