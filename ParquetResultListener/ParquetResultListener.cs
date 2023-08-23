@@ -49,6 +49,14 @@ namespace ParquetResultListener
         public override void OnTestPlanRunCompleted(TestPlanRun planRun, Stream logStream)
         {
             base.OnTestPlanRunCompleted(planRun, logStream);
+
+            if (_planGuidToDirectoryName.TryGetValue(planRun.Id, out var dirName))
+            {
+                foreach (var file in Directory.EnumerateFiles(dirName))
+                {
+                    planRun.PublishArtifact(file);
+                }
+            }
         }
 
         public override void OnTestStepRunStart(TestStepRun stepRun)
