@@ -3,7 +3,7 @@
         <TargetFrameworkIdentifier></TargetFrameworkIdentifier>
         <TargetFrameworkVersion></TargetFrameworkVersion>
         <TargetFramework>netstandard2.0</TargetFramework>
-		<DebugWith>Editor CE</DebugWith>
+		<DebugWith>Editor</DebugWith>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
     </PropertyGroup>
@@ -16,11 +16,11 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <CreateOpenTapPackage>true</CreateOpenTapPackage>
   </PropertyGroup>
-	<ItemGroup Condition="'$(DebugWith)' == 'Editor CE'">
-		<OpenTapPackageReference Include="Editor CE" version="beta"></OpenTapPackageReference>
+	<ItemGroup Condition="'$(DebugWith)' == 'Editor'">
+		<OpenTapPackageReference Include="Editor"/>
 	</ItemGroup>
     <ItemGroup>
-        <PackageReference Include="OpenTAP" Version="9.21.1" />
+        <PackageReference Include="OpenTAP" Version="$(OpenTapVersion)" />
         <PackageReference Include="Parquet.Net" Version="3.3.9" />
     </ItemGroup>
 </Project>
