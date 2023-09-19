@@ -1,6 +1,10 @@
-﻿using Parquet.Data;
+﻿using OpenTap;
+using Parquet.Data;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Thrift.Protocol;
 
 namespace ParquetResultListener
 {
@@ -10,22 +14,18 @@ namespace ParquetResultListener
         Step,
         Result,
         Guid,
+        Parent,
     }
 
-    internal sealed class SchemaBuilder
+    internal static class SchemaBuilder
     {
         private const string Plan = "Plan";
         private const string Step = "Step";
         private const string Result = "Result";
-        private const string Guid = "Guid";
+        private const string Guid = "Guid/Guid";
+        private const string Parent = "Guid/Parent";
 
-        private readonly List<DataField> _fields = new List<DataField>();
-
-        internal SchemaBuilder()
-        {
-        }
-
-        private void Append(Type type, params string[] path)
+        private static DataField GetField(Type type, params string[] path)
         {
             // Enums not directly supported.
             if (type.IsEnum)
@@ -33,39 +33,71 @@ namespace ParquetResultListener
                 type = typeof(string);
             }
 
-            _fields.Add(new DataField(string.Join("/", path), type));
+            return new DataField(GetValidParquetName(path), type.GetNullableType());
         }
-        private void Append<T>(params string[] path)
+        internal static Schema FromTestStepRun(TestStepRun run)
         {
-            Append(typeof(T), path);
-        }
-        internal bool TryAppendResult(Array data, string name)
-        {
-            if (data is not null && data.Length > 0)
+            List<DataField> fields = new List<DataField>()
             {
-                Append(data.GetValue(0).GetType(), Result, name);
-                return true;
-            }
-            return false;
-        }
-        internal void AppendStep(object value, string name)
-        {
-            Append(value.GetType(), Step, name);
-        }
-        internal void AppendGuid(string name)
-        {
-            Append<string>(Guid, name);
+                GetField(typeof(string), Guid),
+                GetField(typeof(string), Parent),
+            };
+
+
+            AddParameters(fields, Step, run);
+
+            return new Schema(fields);
         }
 
-        internal Schema Build()
+        internal static Schema FromTestPlanRun(TestPlanRun run)
         {
-            return new Schema(_fields);
+            List<DataField> fields = new List<DataField>()
+            {
+                GetField(typeof(string), Guid),
+            };
+
+            AddParameters(fields, Plan, run);
+
+            return new Schema(fields);
+        }
+
+        internal static Schema FromResult(TestStepRun run, ResultTable result)
+        {
+            List<DataField> fields = new List<DataField>()
+            {
+                GetField(typeof(string), Guid),
+                GetField(typeof(string), Parent),
+            };
+
+            AddParameters(fields, Step, run);
+
+            foreach (ResultColumn? column in result.Columns)
+            {
+                if (column.Data is not null && column.Data.Length > 0)
+                {
+                    fields.Add(GetField(column.Data.GetValue(0).GetType(), Result, column.Name));
+                }
+            }
+            return new Schema(fields);
+        }
+
+        private static void AddParameters(List<DataField> fields, string group, TestRun run)
+        {
+            foreach (ResultParameter? parameter in run.Parameters)
+            {
+                fields.Add(GetField(parameter.Value.GetType(), group, parameter.Group, parameter.Name));
+            }
+        }
+
+        internal static string GetValidParquetName(params string[] path)
+        {
+            return string.Join("/", path).Replace(".", ",");
         }
 
         internal static ColumnType GetColumnType(DataField field, out string name)
         {
             string[] pathParts = field.Name.Split('/');
-            name = pathParts[1];
+            name = GetValidParquetName(pathParts.Skip(1).ToArray());
             switch (pathParts[0])
             {
                 case Plan:
@@ -74,9 +106,15 @@ namespace ParquetResultListener
                     return ColumnType.Step;
                 case Result:
                     return ColumnType.Result;
-                case Guid:
-                    return ColumnType.Guid;
                 default:
+                    if (field.Name == Guid)
+                    {
+                        return ColumnType.Guid;
+                    }
+                    if (field.Name == Parent)
+                    {
+                        return ColumnType.Plan;
+                    }
                     throw new ArgumentException("Field was not created by the schema builder.", nameof(field));
             }
         }
