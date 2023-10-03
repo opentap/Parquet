@@ -8,7 +8,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using File = System.IO.File;
 
 namespace Parquet.ResultListener
 {
@@ -25,7 +24,7 @@ namespace Parquet.ResultListener
         internal ParquetFile(Schema schema, string path)
         {
             _schema = schema;
-            _stream = File.OpenWrite(path);
+            _stream = System.IO.File.OpenWrite(path);
             _writer = new ParquetWriter(schema, _stream);
             _cachedData = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
             Path = path;
