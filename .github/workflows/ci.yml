@@ -82,5 +82,5 @@ jobs:
             packages: "Repository Client:beta"
         # Publish the package. This requires the package management key to be configured in the 'PUBLIC_REPO_PASS' environment variable.
         - name: Publish Packages
-          working-directory: Parquet/bin/Release/netstandard2.0
+          working-directory: ./
           run: tap repo upload --repository http://packages.opentap.io --token ${{ secrets.PUBLIC_REPO_PASS }} Parquet*.TapPackage
