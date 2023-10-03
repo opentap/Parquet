@@ -13,9 +13,9 @@
     <CreateOpenTapPackage>false</CreateOpenTapPackage>
   </PropertyGroup>
   
-  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <CreateOpenTapPackage>true</CreateOpenTapPackage>
-  </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <CreateOpenTapPackage>true</CreateOpenTapPackage>
+    </PropertyGroup>
     <ItemGroup Condition="'$(DebugWith)' == 'Editor CE' and '$(Configuration)' == 'Debug'">
 	    <OpenTapPackageReference Include="Editor CE" version="beta" />
 	    <OpenTapPackageReference Include="Demonstration" version="beta" />
@@ -23,10 +23,5 @@
     <ItemGroup>
         <PackageReference Include="OpenTAP" Version="9.22.0-rc.1" />
         <PackageReference Include="Parquet.Net" Version="3.3.9" />
-    </ItemGroup>
-    <ItemGroup>
-      <None Update="package.xml">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </None>
     </ItemGroup>
 </Project>
