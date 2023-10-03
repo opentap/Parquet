@@ -17,6 +17,7 @@ namespace ParquetResultListener
         private readonly Schema _schema;
         private readonly Stream _stream;
         private readonly ParquetWriter _writer;
+        private int _rowCount = 0;
 
         public string Path { get; }
 
@@ -55,6 +56,11 @@ namespace ParquetResultListener
                         break;
                 }
             }
+            _rowCount += 1;
+            if (_rowCount > 500)
+            {
+                WriteCache();
+            }
         }
 
         internal void OnlyParameters(TestStepRun stepRun)
@@ -82,6 +88,11 @@ namespace ParquetResultListener
                         column.Add(stepRun.Parent);
                         break;
                 }
+            }
+            _rowCount += 1;
+            if (_rowCount > 500)
+            {
+                WriteCache();
             }
         }
 
@@ -113,10 +124,16 @@ namespace ParquetResultListener
                         break;
                 }
             }
+            _rowCount += count;
+            if (_rowCount > 500)
+            {
+                WriteCache();
+            }
         }
 
         private void WriteCache()
         {
+            _rowCount = 0;
             ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();
             foreach (KeyValuePair<DataField, ArrayList> kvp in _cachedData)
             {

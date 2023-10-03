@@ -68,17 +68,10 @@ namespace ParquetResultListener
                 _hasWrittenParameters.Add(planRun.Id);
             }
 
-            //if (_planGuidToDirectoryName.TryGetValue(planRun.Id, out var dirName))
-            //{
-            //    foreach (var file in Directory.EnumerateFiles(dirName))
-            //    {
-            //        planRun.PublishArtifact(file);
-            //    }
-            //}
             foreach (ParquetFile file in _parquetFiles.Values)
             {
-                planRun.PublishArtifact(file.Path);
                 file.Dispose();
+                planRun.PublishArtifact(file.Path);
             }
             _parquetFiles.Clear();
         }
