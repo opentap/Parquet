@@ -16,7 +16,7 @@ $(GitVersion) - Gets the version from Git in the recommended format Major.Minor.
 	<Prerequisites>None</Prerequisites>
 	<Owner>OpenTAP</Owner>
 	<Files>
-		<File Path="Packages/ParquetResultListener/ParquetResultListener.dll" SourcePath="ParquetResultListener.dll">
+		<File Path="Packages/Parquet/Parquet.dll" SourcePath="Parquet.dll">
 			<SetAssemblyInfo Attributes="Version"/>
 		</File>
 	</Files>

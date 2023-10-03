@@ -44,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: tap-package
-          retention-days: 5
+          retention-days: 7
           path: |
             bin/Release/*.TapPackage
 
