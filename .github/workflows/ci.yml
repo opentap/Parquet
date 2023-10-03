@@ -36,7 +36,7 @@ jobs:
         run: dotnet build -c Release
       # Create the tap package
       - name: Package
-        working-directory: bin/Release
+        working-directory: bin/Release/netstandard2.0
         run: ./tap package create package.xml
       # Upload the package so it can be downloaded from GitHub, 
       # and consumed by other steps in this workflow
