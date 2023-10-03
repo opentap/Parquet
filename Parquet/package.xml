@@ -6,7 +6,7 @@ Version: The version of the package. Must be in a semver 2.0 compatible format. 
 For Version the following macro is available (Only works if the project directory is under Git source control):
 $(GitVersion) - Gets the version from Git in the recommended format Major.Minor.Build-PreRelease+CommitHash.BranchName.
 -->
-<Package Name="Parquet" xmlns="http://opentap.io/schemas/package" InfoLink="" Version="0.1.0-alpha" OS="Windows,Linux">
+<Package Name="Parquet" xmlns="http://opentap.io/schemas/package" InfoLink="" Version="$(GitVersion)" OS="Windows,Linux">
 	<Description>This plugin package contains a result listener that allows for results to be output in a parquet format. Parquet is a fast and efficient storage format similar to CSV but with more structured column based data.</Description>
 	<Status>Alpha</Status>
 	<Organisation>Keysight Technologies</Organisation>

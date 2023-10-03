@@ -6,6 +6,7 @@
 		<DebugWith>Editor CE</DebugWith>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
+		<AssemblyVersion>$(GitVersion)</AssemblyVersion>
     </PropertyGroup>
     
   <PropertyGroup>
