@@ -17,8 +17,8 @@
     <CreateOpenTapPackage>true</CreateOpenTapPackage>
   </PropertyGroup>
 	<ItemGroup Condition="'$(DebugWith)' == 'Editor CE'">
-		<OpenTapPackageReference Include="Editor CE" version="beta"/>
-		<OpenTapPackageReference Include="Demonstration" version="beta"/>
+		<OpenTapPackageReference Include="Editor CE" version="beta" />
+		<OpenTapPackageReference Include="Demonstration" version="beta" />
 	</ItemGroup>
     <ItemGroup>
         <PackageReference Include="OpenTAP" Version="$(OpenTapVersion)" />

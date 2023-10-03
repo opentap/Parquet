@@ -8,8 +8,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using File = System.IO.File;
 
-namespace ParquetResultListener
+namespace Parquet.ResultListener
 {
     internal sealed class ParquetFile : IDisposable
     {

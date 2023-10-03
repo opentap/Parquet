@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace ParquetResultListener
+namespace Parquet.ResultListener
 {
     internal static class TypeExtensions
     {

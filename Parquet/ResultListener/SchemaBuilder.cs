@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using Thrift.Protocol;
 
-namespace ParquetResultListener
+namespace Parquet.ResultListener
 {
     internal enum ColumnType
     {

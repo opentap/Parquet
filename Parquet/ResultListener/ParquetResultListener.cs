@@ -5,17 +5,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace ParquetResultListener
+namespace Parquet.ResultListener
 {
-    [Display("ParquetResultListener")]
-    public sealed class ParquetResultListener : ResultListener
+    [Display("Parquet Result Listener")]
+    public sealed class ParquetResultListener : OpenTap.ResultListener
     {
-        private readonly Dictionary<Guid, string> _planGuidToDirectoryName = new Dictionary<Guid, string>(); 
+        private readonly Dictionary<Guid, string> _planGuidToDirectoryName = new Dictionary<Guid, string>();
         private readonly Dictionary<string, ParquetFile> _parquetFiles = new Dictionary<string, ParquetFile>();
         private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRuns = new Dictionary<Guid, TestPlanRun>();
         private readonly Dictionary<Guid, TestStepRun> _guidToStepRuns = new Dictionary<Guid, TestStepRun>();
         private readonly HashSet<Guid> _hasWrittenParameters = new HashSet<Guid>();
-        
+
 
         public ParquetResultListener()
         {
@@ -81,7 +81,7 @@ namespace ParquetResultListener
             base.OnTestStepRunStart(stepRun);
             _guidToStepRuns[stepRun.Id] = stepRun;
         }
-        
+
         public override void OnTestStepRunCompleted(TestStepRun stepRun)
         {
             base.OnTestStepRunCompleted(stepRun);
