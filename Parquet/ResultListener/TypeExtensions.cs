@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace Parquet.ResultListener
+namespace OpenTap.Plugins.Parquet
 {
     internal static class TypeExtensions
     {

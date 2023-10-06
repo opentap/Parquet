@@ -1,28 +1,30 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
-    <PropertyGroup>
-        <TargetFrameworkIdentifier></TargetFrameworkIdentifier>
-        <TargetFrameworkVersion></TargetFrameworkVersion>
-        <TargetFramework>netstandard2.0</TargetFramework>
-		<DebugWith>Editor CE</DebugWith>
-		<Nullable>enable</Nullable>
-		<LangVersion>latest</LangVersion>
-		<AssemblyVersion>$(GitVersion)</AssemblyVersion>
-    </PropertyGroup>
-    
+  <PropertyGroup>
+    <TargetFrameworkIdentifier></TargetFrameworkIdentifier>
+    <TargetFrameworkVersion></TargetFrameworkVersion>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetName>OpenTap.Plugins.Parquet</TargetName>
+    <DebugWith>Editor CE</DebugWith>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyVersion>$(GitVersion)</AssemblyVersion>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
   <PropertyGroup>
     <OpenTapPackageDefinitionPath>package.xml</OpenTapPackageDefinitionPath>
     <CreateOpenTapPackage>false</CreateOpenTapPackage>
   </PropertyGroup>
-  
-    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-        <CreateOpenTapPackage>true</CreateOpenTapPackage>
-    </PropertyGroup>
-    <ItemGroup Condition="'$(DebugWith)' == 'Editor CE' and '$(Configuration)' == 'Debug'">
-	    <OpenTapPackageReference Include="Editor CE" version="beta" />
-	    <OpenTapPackageReference Include="Demonstration" version="beta" />
-    </ItemGroup>
-    <ItemGroup>
-        <PackageReference Include="OpenTAP" Version="9.22.0-rc.1" />
-        <PackageReference Include="Parquet.Net" Version="3.3.9" />
-    </ItemGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <CreateOpenTapPackage>true</CreateOpenTapPackage>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(DebugWith)' == 'Editor CE' and '$(Configuration)' == 'Debug'">
+    <OpenTapPackageReference Include="Editor CE" version="beta" />
+    <OpenTapPackageReference Include="Demonstration" version="beta" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTAP" Version="9.22.0-rc.1" />
+    <PackageReference Include="Parquet.Net" Version="3.3.9" />
+  </ItemGroup>
 </Project>

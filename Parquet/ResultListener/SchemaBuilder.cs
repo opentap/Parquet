@@ -1,12 +1,9 @@
-﻿using OpenTap;
-using Parquet.Data;
+﻿using Parquet.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using Thrift.Protocol;
 
-namespace Parquet.ResultListener
+namespace OpenTap.Plugins.Parquet
 {
     internal enum ColumnType
     {

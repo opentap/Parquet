@@ -1,15 +1,12 @@
-﻿using OpenTap;
-using Parquet;
+﻿using Parquet;
 using Parquet.Data;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Parquet.ResultListener
+namespace OpenTap.Plugins.Parquet
 {
     internal sealed class ParquetFile : IDisposable
     {

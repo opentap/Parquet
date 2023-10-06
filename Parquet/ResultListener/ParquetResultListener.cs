@@ -1,11 +1,9 @@
-﻿using OpenTap;
-using Parquet.Data;
+﻿using Parquet.Data;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading.Tasks;
 
-namespace Parquet.ResultListener
+namespace OpenTap.Plugins.Parquet
 {
     [Display("Parquet Result Listener")]
     public sealed class ParquetResultListener : OpenTap.ResultListener
