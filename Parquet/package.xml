@@ -8,8 +8,6 @@ $(GitVersion) - Gets the version from Git in the recommended format Major.Minor.
 -->
 <Package Name="Parquet" xmlns="http://opentap.io/schemas/package" InfoLink="" Version="$(GitVersion)" OS="Windows,Linux" Architecture="AnyCPU" Group="Database" Tags="Parquet ResultListener Database">
 	<Description>This plugin package contains a result listener that allows for results to be output in a parquet format. Parquet is a fast and efficient storage format similar to CSV but with more structured column based data.</Description>
-	<Status>Alpha</Status>
-	<Organisation>Keysight Technologies</Organisation>
 	<Contacts>
 		<Contact Email="tap.support@keysight.com" Name="TAP Support"/>
 	</Contacts>
