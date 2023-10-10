@@ -62,7 +62,7 @@ jobs:
 
   Publish:
       # Only publish on the main branch or if the commit is tagged.
-      if: github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags/v')
+      if: github.ref == 'refs/heads/main' || contains(github.ref, 'refs/heads/release') || contains(github.ref, 'refs/tags/v')
       runs-on: ubuntu-latest
       # This step depends on the build step
       needs:
