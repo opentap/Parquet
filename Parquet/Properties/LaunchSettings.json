@@ -3,7 +3,7 @@
     "Debug with editor": {
       "commandName": "Executable",
       "commandLineArgs": "editor ParquetResultListener.TapPlan -c -v",
-      "workingDirectory": "./../bin/Debug/",
+      "workingDirectory": "./bin/Debug/netstandard2.0/",
       "executablePath": "./tap.exe",
       "dotnetRunMessages": true
     }
