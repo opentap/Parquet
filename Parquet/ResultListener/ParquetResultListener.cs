@@ -6,7 +6,7 @@ using System.IO;
 namespace OpenTap.Plugins.Parquet
 {
     [Display("Parquet Result Listener")]
-    public sealed class ParquetResultListener : OpenTap.ResultListener
+    public sealed class ParquetResultListener : ResultListener
     {
         private readonly Dictionary<Guid, string> _planGuidToDirectoryName = new Dictionary<Guid, string>();
         private readonly Dictionary<string, ParquetFile> _parquetFiles = new Dictionary<string, ParquetFile>();
@@ -102,7 +102,7 @@ namespace OpenTap.Plugins.Parquet
             TestPlanRun planRun = GetPlanRun(stepRun);
 
             string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{result.Name}.parquet";
-            Schema schema = SchemaBuilder.FromTestStepRun(stepRun);
+            Schema schema = SchemaBuilder.FromResult(stepRun, result);
             ParquetFile file = GetOrCreateParquetFile(schema, path);
             file.Results(stepRun, result);
 

@@ -32,6 +32,7 @@ namespace OpenTap.Plugins.Parquet
 
             return new DataField(GetValidParquetName(path), type.GetNullableType());
         }
+
         internal static Schema FromTestStepRun(TestStepRun run)
         {
             List<DataField> fields = new List<DataField>()
@@ -39,7 +40,6 @@ namespace OpenTap.Plugins.Parquet
                 GetField(typeof(string), Guid),
                 GetField(typeof(string), Parent),
             };
-
 
             AddParameters(fields, Step, run);
 
@@ -78,6 +78,7 @@ namespace OpenTap.Plugins.Parquet
             return new Schema(fields);
         }
 
+
         private static void AddParameters(List<DataField> fields, string group, TestRun run)
         {
             foreach (ResultParameter? parameter in run.Parameters)
@@ -110,7 +111,7 @@ namespace OpenTap.Plugins.Parquet
                     }
                     if (field.Name == Parent)
                     {
-                        return ColumnType.Plan;
+                        return ColumnType.Parent;
                     }
                     throw new ArgumentException("Field was not created by the schema builder.", nameof(field));
             }

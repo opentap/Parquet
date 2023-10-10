@@ -21,7 +21,7 @@ namespace OpenTap.Plugins.Parquet
         internal ParquetFile(Schema schema, string path)
         {
             _schema = schema;
-            _stream = System.IO.File.OpenWrite(path);
+            _stream = File.OpenWrite(path);
             _writer = new ParquetWriter(schema, _stream);
             _cachedData = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
             Path = path;
@@ -111,7 +111,7 @@ namespace OpenTap.Plugins.Parquet
                         column.AddRange(Enumerable.Repeat(parameters[name], count).ToArray());
                         break;
                     case ColumnType.Result:
-                        column.AddRange(results.Values);
+                        column.AddRange(results[name]);
                         break;
                     case ColumnType.Guid:
                         column.AddRange(Enumerable.Repeat(stepRun.Id, count).ToArray());
@@ -151,6 +151,7 @@ namespace OpenTap.Plugins.Parquet
         public void Dispose()
         {
             WriteCache();
+            _stream.Flush();
             _writer.Dispose();
             _stream.Dispose();
         }
@@ -177,8 +178,12 @@ namespace OpenTap.Plugins.Parquet
                     return list.ToArray(typeof(ushort?));
                 case DataType.Int32:
                     return list.ToArray(typeof(int?));
+                case DataType.UnsignedInt32:
+                    return list.ToArray(typeof(uint?));
                 case DataType.Int64:
                     return list.ToArray(typeof(long?));
+                case DataType.UnsignedInt64:
+                    return list.ToArray(typeof(ulong?));
                 case DataType.String:
                     return list.OfType<object?>().Select(o => o?.ToString()).ToArray();
                 case DataType.Float:
@@ -187,10 +192,16 @@ namespace OpenTap.Plugins.Parquet
                     return list.ToArray(typeof(double?));
                 case DataType.Decimal:
                     return list.ToArray(typeof(decimal?));
+                case DataType.TimeSpan:
+                    return list.ToArray(typeof(TimeSpan?));
                 case DataType.DateTimeOffset:
                     return list.OfType<IConvertible?>().Select<IConvertible?, DateTimeOffset?>(dt => dt is null ? null : new DateTimeOffset((DateTime)dt)).ToArray();
+                case DataType.Unspecified:
+                case DataType.Int96:
+                case DataType.ByteArray:
+                case DataType.Interval:
                 default:
-                    throw new NotImplementedException();
+                    throw new Exception($"Could not create column of type {type}");
             }
         }
 
