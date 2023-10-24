@@ -17,7 +17,7 @@ namespace OpenTap.Plugins.Parquet
 
         public ParquetResultListener()
         {
-            Name = nameof(ParquetResultListener);
+            Name = "Parquet";
         }
 
         public override void Open()
