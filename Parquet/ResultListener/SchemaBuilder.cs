@@ -14,15 +14,73 @@ namespace OpenTap.Plugins.Parquet
         Parent,
     }
 
-    internal static class SchemaBuilder
+    internal class SchemaBuilder
     {
         private const string Plan = "Plan";
         private const string Step = "Step";
         private const string Result = "Result";
-        private const string Guid = "Guid/Guid";
-        private const string Parent = "Guid/Parent";
+        private const string Guid = "Guid";
+        private const string Parent = "Parent";
 
-        private static DataField GetField(Type type, params string[] path)
+        private readonly List<DataField> _fields;
+
+        internal SchemaBuilder()
+        {
+            _fields = new List<DataField>()
+            {
+                CreateField(typeof(string), Guid),
+                CreateField(typeof(string), Parent),
+            };
+        }
+
+        internal SchemaBuilder AddResultFields(TestStepRun run, ResultTable result)
+        {
+            AddParameters(Step, run);
+
+            foreach (ResultColumn? column in result.Columns)
+            {
+                if (column.Data is not null && column.Data.Length > 0)
+                {
+                    _fields.Add(CreateField(column.Data.GetValue(0).GetType(), Result, column.Name));
+                }
+            }
+            return this;
+        }
+
+        internal SchemaBuilder AddStepParameters(TestStepRun run)
+        {
+            AddParameters(Step, run);
+            return this;
+        }
+
+        internal SchemaBuilder AddPlanParameters(TestPlanRun run)
+        {
+            AddParameters(Plan, run);
+            return this;
+        }
+
+        internal Schema ToSchema()
+        {
+            return new Schema(_fields);
+        }
+
+        internal IEnumerable<DataField> GetDataFields()
+        {
+            foreach (DataField field in _fields)
+            {
+                yield return field;
+            }
+        }
+
+        private void AddParameters(string group, TestRun run)
+        {
+            foreach (ResultParameter? parameter in run.Parameters)
+            {
+                _fields.Add(CreateField(parameter.Value.GetType(), group, parameter.Group, parameter.Name));
+            }
+        }
+
+        private static DataField CreateField(Type type, params string[] path)
         {
             // Enums not directly supported.
             if (type.IsEnum)
@@ -31,60 +89,6 @@ namespace OpenTap.Plugins.Parquet
             }
 
             return new DataField(GetValidParquetName(path), type.GetNullableType());
-        }
-
-        internal static Schema FromTestStepRun(TestStepRun run)
-        {
-            List<DataField> fields = new List<DataField>()
-            {
-                GetField(typeof(string), Guid),
-                GetField(typeof(string), Parent),
-            };
-
-            AddParameters(fields, Step, run);
-
-            return new Schema(fields);
-        }
-
-        internal static Schema FromTestPlanRun(TestPlanRun run)
-        {
-            List<DataField> fields = new List<DataField>()
-            {
-                GetField(typeof(string), Guid),
-            };
-
-            AddParameters(fields, Plan, run);
-
-            return new Schema(fields);
-        }
-
-        internal static Schema FromResult(TestStepRun run, ResultTable result)
-        {
-            List<DataField> fields = new List<DataField>()
-            {
-                GetField(typeof(string), Guid),
-                GetField(typeof(string), Parent),
-            };
-
-            AddParameters(fields, Step, run);
-
-            foreach (ResultColumn? column in result.Columns)
-            {
-                if (column.Data is not null && column.Data.Length > 0)
-                {
-                    fields.Add(GetField(column.Data.GetValue(0).GetType(), Result, column.Name));
-                }
-            }
-            return new Schema(fields);
-        }
-
-
-        private static void AddParameters(List<DataField> fields, string group, TestRun run)
-        {
-            foreach (ResultParameter? parameter in run.Parameters)
-            {
-                fields.Add(GetField(parameter.Value.GetType(), group, parameter.Group, parameter.Name));
-            }
         }
 
         internal static string GetValidParquetName(params string[] path)
@@ -115,6 +119,12 @@ namespace OpenTap.Plugins.Parquet
                     }
                     throw new ArgumentException("Field was not created by the schema builder.", nameof(field));
             }
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is SchemaBuilder schema &&
+                   _fields.SequenceEqual(schema._fields);
         }
     }
 }

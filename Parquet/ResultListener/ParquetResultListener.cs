@@ -60,7 +60,8 @@ namespace OpenTap.Plugins.Parquet
             if (!_hasWrittenParameters.Contains(planRun.Id))
             {
                 string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{planRun.TestPlanName}.parquet";
-                Schema schema = SchemaBuilder.FromTestPlanRun(planRun);
+                SchemaBuilder schema = new SchemaBuilder()
+                    .AddPlanParameters(planRun);
                 ParquetFile file = GetOrCreateParquetFile(schema, path);
                 file.OnlyParameters(planRun);
                 _hasWrittenParameters.Add(planRun.Id);
@@ -88,7 +89,8 @@ namespace OpenTap.Plugins.Parquet
             {
                 TestPlanRun planRun = GetPlanRun(stepRun);
                 string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{stepRun.TestStepName}.parquet";
-                Schema schema = SchemaBuilder.FromTestStepRun(stepRun);
+                SchemaBuilder schema = new SchemaBuilder()
+                    .AddStepParameters(stepRun);
                 ParquetFile file = GetOrCreateParquetFile(schema, path);
                 file.OnlyParameters(stepRun);
                 _hasWrittenParameters.Add(stepRun.Id);
@@ -102,14 +104,15 @@ namespace OpenTap.Plugins.Parquet
             TestPlanRun planRun = GetPlanRun(stepRun);
 
             string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{result.Name}.parquet";
-            Schema schema = SchemaBuilder.FromResult(stepRun, result);
+            SchemaBuilder schema = new SchemaBuilder()
+                .AddResultFields(stepRun, result);
             ParquetFile file = GetOrCreateParquetFile(schema, path);
             file.Results(stepRun, result);
 
             _hasWrittenParameters.Add(stepRunId);
         }
 
-        private ParquetFile GetOrCreateParquetFile(Schema schema, string suggestedPath)
+        private ParquetFile GetOrCreateParquetFile(SchemaBuilder schema, string suggestedPath)
         {
             string path = suggestedPath;
             int count = 0;

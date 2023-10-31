@@ -11,18 +11,18 @@ namespace OpenTap.Plugins.Parquet
     internal sealed class ParquetFile : IDisposable
     {
         private Dictionary<DataField, ArrayList> _cachedData = new Dictionary<DataField, ArrayList>();
-        private readonly Schema _schema;
+        private readonly SchemaBuilder _schema;
         private readonly Stream _stream;
         private readonly ParquetWriter _writer;
         private int _rowCount = 0;
 
         public string Path { get; }
 
-        internal ParquetFile(Schema schema, string path)
+        internal ParquetFile(SchemaBuilder schema, string path)
         {
             _schema = schema;
             _stream = File.OpenWrite(path);
-            _writer = new ParquetWriter(schema, _stream);
+            _writer = new ParquetWriter(_schema.ToSchema(), _stream);
             _cachedData = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
             Path = path;
         }
@@ -143,7 +143,7 @@ namespace OpenTap.Plugins.Parquet
             groupWriter.Dispose();
         }
 
-        internal bool CanContain(Schema schema)
+        internal bool CanContain(SchemaBuilder schema)
         {
             return _schema.Equals(schema);
         }
