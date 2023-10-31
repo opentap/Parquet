@@ -112,7 +112,7 @@ namespace OpenTap.Plugins.Parquet
                         column.AddRange(Enumerable.Repeat(stepParameters?.GetValueOrDefault(name), count).ToArray());
                         break;
                     case ColumnType.Result:
-                        column.AddRange(results?[name] ?? Enumerable.Repeat<object?>(null, count).ToArray());
+                        column.AddRange(results?.GetValueOrDefault(name) ?? Enumerable.Repeat<object?>(null, count).ToArray());
                         break;
                     case ColumnType.ResultName:
                         column.AddRange(Enumerable.Repeat(resultName, count).ToArray());
@@ -143,6 +143,7 @@ namespace OpenTap.Plugins.Parquet
                 Array data = ConvertList(list, field.DataType);
                 DataColumn column = new DataColumn(field, data);
                 groupWriter.WriteColumn(column);
+                list.Clear();
             }
             groupWriter.Dispose();
         }
