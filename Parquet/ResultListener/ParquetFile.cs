@@ -11,7 +11,7 @@ namespace OpenTap.Plugins.Parquet
     internal sealed class ParquetFile : IDisposable
     {
         private Dictionary<DataField, ArrayList> _cachedData = new Dictionary<DataField, ArrayList>();
-        private readonly SchemaBuilder _schema;
+        private readonly Schema _schema;
         private readonly Stream _stream;
         private readonly ParquetWriter _writer;
         private int _rowCount = 0;
@@ -20,11 +20,28 @@ namespace OpenTap.Plugins.Parquet
 
         internal ParquetFile(SchemaBuilder schema, string path)
         {
-            _schema = schema;
+            // If the file already exists we should merge the new file with the old data first.
+            bool merge = File.Exists(path);
+            if (merge)
+            {
+                File.Move(path, path + ".tmp");
+            }
+
+            _schema = schema.ToSchema();
             _stream = File.OpenWrite(path);
-            _writer = new ParquetWriter(_schema.ToSchema(), _stream);
+            _writer = new ParquetWriter(_schema, _stream);
             _cachedData = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
             Path = path;
+
+            if (merge)
+            {
+                using Stream stream = File.OpenRead(path + ".tmp");
+                using ParquetReader reader = new ParquetReader(stream);
+                schema.Union(reader.Schema);
+                _schema = schema.ToSchema();
+
+
+            }
         }
 
         internal void OnlyParameters(TestPlanRun planRun)
@@ -51,6 +68,7 @@ namespace OpenTap.Plugins.Parquet
                     case ColumnType.Parent:
                         column.Add(null);
                         break;
+                        // TODO: Default?
                 }
             }
             _rowCount += 1;
@@ -84,6 +102,7 @@ namespace OpenTap.Plugins.Parquet
                     case ColumnType.Parent:
                         column.Add(stepRun.Parent);
                         break;
+                        // TODO: Default?
                 }
             }
             _rowCount += 1;
@@ -128,6 +147,37 @@ namespace OpenTap.Plugins.Parquet
             }
         }
 
+        private void AddRows(Dictionary<string, IConvertible> planParameters, Dictionary<string, IConvertible> stepParameters, Dictionary<string, Array> results, Guid stepId, Guid parentId, int count)
+        {
+            foreach (DataField field in _schema.GetDataFields())
+            {
+                ArrayList column = _cachedData[field];
+                switch (SchemaBuilder.GetColumnType(field, out string name))
+                {
+                    case ColumnType.Plan:
+                        column.AddRange(Enumerable.Repeat<object?>(null, count).ToArray());
+                        break;
+                    case ColumnType.Step:
+                        column.AddRange(Enumerable.Repeat(stepParameters[name], count).ToArray());
+                        break;
+                    case ColumnType.Result:
+                        column.AddRange(results[name]);
+                        break;
+                    case ColumnType.Guid:
+                        column.AddRange(Enumerable.Repeat(stepId, count).ToArray());
+                        break;
+                    case ColumnType.Parent:
+                        column.AddRange(Enumerable.Repeat(stepRun.Parent, count).ToArray());
+                        break;
+                }
+            }
+            _rowCount += count;
+            if (_rowCount > 500)
+            {
+                WriteCache();
+            }
+        }
+
         private void WriteCache()
         {
             _rowCount = 0;
@@ -145,6 +195,7 @@ namespace OpenTap.Plugins.Parquet
 
         internal bool CanContain(SchemaBuilder schema)
         {
+            // TODO: Check subset instead of equality.
             return _schema.Equals(schema);
         }
 

@@ -33,18 +33,6 @@ namespace OpenTap.Plugins.Parquet
             };
         }
 
-        internal SchemaBuilder(Schema schema)
-        {
-            _fields = schema.GetDataFields().ToList();
-        }
-
-        internal void Union(SchemaBuilder schema)
-        {
-            IEnumerable<DataField> fields = _fields.Union(schema._fields).ToList();
-            _fields.Clear();
-            _fields.AddRange(fields);
-        }
-
         internal void Union(Schema schema)
         {
             IEnumerable<DataField> fields = _fields.Union(schema.GetDataFields()).ToList();
@@ -96,6 +84,11 @@ namespace OpenTap.Plugins.Parquet
             }
         }
 
+        internal static string GetValidParquetName(params string[] path)
+        {
+            return string.Join("/", path).Replace(".", ",");
+        }
+
         private static DataField CreateField(Type type, params string[] path)
         {
             // Enums not directly supported.
@@ -105,11 +98,6 @@ namespace OpenTap.Plugins.Parquet
             }
 
             return new DataField(GetValidParquetName(path), type.GetNullableType());
-        }
-
-        internal static string GetValidParquetName(params string[] path)
-        {
-            return string.Join("/", path).Replace(".", ",");
         }
 
         internal static ColumnType GetColumnType(DataField field, out string name)
@@ -135,12 +123,6 @@ namespace OpenTap.Plugins.Parquet
                     }
                     throw new ArgumentException("Field was not created by the schema builder.", nameof(field));
             }
-        }
-
-        public override bool Equals(object? obj)
-        {
-            return obj is SchemaBuilder schema &&
-                   _fields.SequenceEqual(schema._fields);
         }
     }
 }
