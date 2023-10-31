@@ -33,9 +33,28 @@ namespace OpenTap.Plugins.Parquet
             };
         }
 
-        internal SchemaBuilder AddResultFields(TestStepRun run, ResultTable result)
+        internal SchemaBuilder(Schema schema)
         {
-            AddParameters(Step, run);
+            _fields = schema.GetDataFields().ToList();
+        }
+
+        internal void Union(SchemaBuilder schema)
+        {
+            IEnumerable<DataField> fields = _fields.Union(schema._fields).ToList();
+            _fields.Clear();
+            _fields.AddRange(fields);
+        }
+
+        internal void Union(Schema schema)
+        {
+            IEnumerable<DataField> fields = _fields.Union(schema.GetDataFields()).ToList();
+            _fields.Clear();
+            _fields.AddRange(fields);
+        }
+
+        internal void AddResultFields(TestStepRun run, ResultTable result)
+        {
+            AddStepParameters(run);
 
             foreach (ResultColumn? column in result.Columns)
             {
@@ -44,19 +63,16 @@ namespace OpenTap.Plugins.Parquet
                     _fields.Add(CreateField(column.Data.GetValue(0).GetType(), Result, column.Name));
                 }
             }
-            return this;
         }
 
-        internal SchemaBuilder AddStepParameters(TestStepRun run)
+        internal void AddStepParameters(TestStepRun run)
         {
             AddParameters(Step, run);
-            return this;
         }
 
-        internal SchemaBuilder AddPlanParameters(TestPlanRun run)
+        internal void AddPlanParameters(TestPlanRun run)
         {
             AddParameters(Plan, run);
-            return this;
         }
 
         internal Schema ToSchema()

@@ -60,8 +60,8 @@ namespace OpenTap.Plugins.Parquet
             if (!_hasWrittenParameters.Contains(planRun.Id))
             {
                 string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{planRun.TestPlanName}.parquet";
-                SchemaBuilder schema = new SchemaBuilder()
-                    .AddPlanParameters(planRun);
+                SchemaBuilder schema = new SchemaBuilder();
+                schema.AddPlanParameters(planRun);
                 ParquetFile file = GetOrCreateParquetFile(schema, path);
                 file.OnlyParameters(planRun);
                 _hasWrittenParameters.Add(planRun.Id);
@@ -89,8 +89,8 @@ namespace OpenTap.Plugins.Parquet
             {
                 TestPlanRun planRun = GetPlanRun(stepRun);
                 string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{stepRun.TestStepName}.parquet";
-                SchemaBuilder schema = new SchemaBuilder()
-                    .AddStepParameters(stepRun);
+                SchemaBuilder schema = new SchemaBuilder();
+                schema.AddStepParameters(stepRun);
                 ParquetFile file = GetOrCreateParquetFile(schema, path);
                 file.OnlyParameters(stepRun);
                 _hasWrittenParameters.Add(stepRun.Id);
@@ -104,8 +104,8 @@ namespace OpenTap.Plugins.Parquet
             TestPlanRun planRun = GetPlanRun(stepRun);
 
             string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{result.Name}.parquet";
-            SchemaBuilder schema = new SchemaBuilder()
-                .AddResultFields(stepRun, result);
+            SchemaBuilder schema = new SchemaBuilder();
+            schema.AddResultFields(stepRun, result);
             ParquetFile file = GetOrCreateParquetFile(schema, path);
             file.Results(stepRun, result);
 
