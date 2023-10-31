@@ -11,6 +11,7 @@ namespace OpenTap.Plugins.Parquet
         Plan,
         Step,
         Result,
+        ResultName,
         Guid,
         Parent,
     }
@@ -20,6 +21,7 @@ namespace OpenTap.Plugins.Parquet
         private const string Plan = "Plan";
         private const string Step = "Step";
         private const string Result = "Result";
+        private const string ResultName = "ResultName";
         private const string Guid = "Guid";
         private const string Parent = "Parent";
 
@@ -29,6 +31,7 @@ namespace OpenTap.Plugins.Parquet
         {
             _fields = new List<DataField>()
             {
+                CreateField(typeof(string), ResultName),
                 CreateField(typeof(string), Guid),
                 CreateField(typeof(string), Parent),
             };
@@ -114,6 +117,10 @@ namespace OpenTap.Plugins.Parquet
                 case Result:
                     return ColumnType.Result;
                 default:
+                    if (field.Name == ResultName)
+                    {
+                        return ColumnType.ResultName;
+                    }
                     if (field.Name == Guid)
                     {
                         return ColumnType.Guid;

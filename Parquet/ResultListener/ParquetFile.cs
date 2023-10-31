@@ -74,14 +74,14 @@ namespace OpenTap.Plugins.Parquet
         {
             Dictionary<string, IConvertible> parameters = GetParameters(planRun);
 
-            AddRows(parameters, null, null, planRun.Id, null);
+            AddRows(parameters, null, null, null, planRun.Id, null);
         }
 
         internal void OnlyParameters(TestStepRun stepRun)
         {
             Dictionary<string, IConvertible> parameters = GetParameters(stepRun);
 
-            AddRows(null, parameters, null, stepRun.Id, stepRun.Parent);
+            AddRows(null, parameters, null, null, stepRun.Id, stepRun.Parent);
         }
 
         internal void Results(TestStepRun stepRun, ResultTable table)
@@ -89,12 +89,13 @@ namespace OpenTap.Plugins.Parquet
             Dictionary<string, IConvertible> parameters = GetParameters(stepRun);
             Dictionary<string, Array> results = GetResults(table);
 
-            AddRows(null, parameters, results, stepRun.Id, stepRun.Parent);
+            AddRows(null, parameters, results, table.Name, stepRun.Id, stepRun.Parent);
         }
 
         private void AddRows(Dictionary<string, IConvertible>? planParameters,
             Dictionary<string, IConvertible>? stepParameters,
             Dictionary<string, Array>? results,
+            string? resultName,
             Guid? stepId,
             Guid? parentId)
         {
@@ -105,13 +106,16 @@ namespace OpenTap.Plugins.Parquet
                 switch (SchemaBuilder.GetColumnType(field, out string name))
                 {
                     case ColumnType.Plan:
-                        column.AddRange(Enumerable.Repeat(planParameters?[name], count).ToArray());
+                        column.AddRange(Enumerable.Repeat(planParameters?.GetValueOrDefault(name), count).ToArray());
                         break;
                     case ColumnType.Step:
-                        column.AddRange(Enumerable.Repeat(stepParameters?[name], count).ToArray());
+                        column.AddRange(Enumerable.Repeat(stepParameters?.GetValueOrDefault(name), count).ToArray());
                         break;
                     case ColumnType.Result:
                         column.AddRange(results?[name] ?? Enumerable.Repeat<object?>(null, count).ToArray());
+                        break;
+                    case ColumnType.ResultName:
+                        column.AddRange(Enumerable.Repeat(resultName, count).ToArray());
                         break;
                     case ColumnType.Guid:
                         column.AddRange(Enumerable.Repeat(stepId, count).ToArray());
