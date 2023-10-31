@@ -1,4 +1,5 @@
 ﻿using Parquet.Data;
+using Parquet.Data.Rows;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,11 +10,14 @@ namespace OpenTap.Plugins.Parquet
     [Display("Parquet", "Save results in a Parquet file", "Database")]
     public sealed class ParquetResultListener : ResultListener
     {
-        private readonly Dictionary<Guid, string> _planGuidToDirectoryName = new Dictionary<Guid, string>();
         private readonly Dictionary<string, ParquetFile> _parquetFiles = new Dictionary<string, ParquetFile>();
         private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRuns = new Dictionary<Guid, TestPlanRun>();
         private readonly Dictionary<Guid, TestStepRun> _guidToStepRuns = new Dictionary<Guid, TestStepRun>();
         private readonly HashSet<Guid> _hasWrittenParameters = new HashSet<Guid>();
+
+        [Display("File path", "The file path of the parquet file(s). Can use <ResultType> to have one file per result type.")]
+        [FilePath]
+        public MacroString FilePath { get; set; } = new MacroString() { Text = "Results/<TestPlanName>.<Date>.parquet" };
 
         public ParquetResultListener()
         {
@@ -34,7 +38,6 @@ namespace OpenTap.Plugins.Parquet
             }
             _parquetFiles.Clear();
 
-            _planGuidToDirectoryName.Clear();
             _guidToPlanRuns.Clear();
             _guidToStepRuns.Clear();
         }
@@ -43,13 +46,12 @@ namespace OpenTap.Plugins.Parquet
         {
             base.OnTestPlanRunStart(planRun);
 
-            string dirName = $"Results/{planRun.TestPlanName}{planRun.StartTime.ToString("yy-MM-dd-HH-mm-ss")}";
-            if (!Directory.Exists(dirName))
-            {
-                Directory.CreateDirectory(dirName);
-            }
+            //string dirName = $"Results/{planRun.TestPlanName}{planRun.StartTime.ToString("yy-MM-dd-HH-mm-ss")}";
+            //if (!Directory.Exists(dirName))
+            //{
+            //    Directory.CreateDirectory(dirName);
+            //}
 
-            _planGuidToDirectoryName[planRun.Id] = dirName;
             _guidToPlanRuns[planRun.Id] = planRun;
         }
 
@@ -59,7 +61,10 @@ namespace OpenTap.Plugins.Parquet
 
             if (!_hasWrittenParameters.Contains(planRun.Id))
             {
-                string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{planRun.TestPlanName}.parquet";
+                string path = FilePath.Expand(planRun, DateTime.Now, "./", new Dictionary<string, object>
+                {
+                    { "ResultType", "Plan" }
+                });
                 SchemaBuilder schema = new SchemaBuilder();
                 schema.AddPlanParameters(planRun);
                 ParquetFile file = GetOrCreateParquetFile(schema, path);
@@ -88,7 +93,10 @@ namespace OpenTap.Plugins.Parquet
             if (!_hasWrittenParameters.Contains(stepRun.Id))
             {
                 TestPlanRun planRun = GetPlanRun(stepRun);
-                string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{planRun.TestPlanName}.parquet";
+                string path = FilePath.Expand(planRun, DateTime.Now, "./", new Dictionary<string, object>
+                {
+                    { "ResultType", "Plan" }
+                });
                 SchemaBuilder schema = new SchemaBuilder();
                 schema.AddStepParameters(stepRun);
                 ParquetFile file = GetOrCreateParquetFile(schema, path);
@@ -103,7 +111,10 @@ namespace OpenTap.Plugins.Parquet
             TestStepRun stepRun = _guidToStepRuns[stepRunId];
             TestPlanRun planRun = GetPlanRun(stepRun);
 
-            string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{planRun.TestPlanName}.parquet";
+            string path = FilePath.Expand(planRun, DateTime.Now, "./", new Dictionary<string, object>
+            {
+                { "ResultType", result.Name }
+            });
             SchemaBuilder schema = new SchemaBuilder();
             schema.AddResultFields(stepRun, result);
             ParquetFile file = GetOrCreateParquetFile(schema, path);
@@ -116,6 +127,12 @@ namespace OpenTap.Plugins.Parquet
         {
             if (!_parquetFiles.TryGetValue(path, out ParquetFile? file))
             {
+                string dirPath = Path.GetDirectoryName(path);
+                if (!Directory.Exists(dirPath))
+                {
+                    Directory.CreateDirectory(dirPath);
+                }
+
                 file = new ParquetFile(schema, path);
                 _parquetFiles[path] = file;
             }
