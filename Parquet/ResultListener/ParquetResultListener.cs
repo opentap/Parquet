@@ -6,7 +6,7 @@ using System.Security.Cryptography;
 
 namespace OpenTap.Plugins.Parquet
 {
-    [Display("Parquet Result Listener", "Save results in a Parquet file", "Database")]
+    [Display("Parquet", "Save results in a Parquet file", "Database")]
     public sealed class ParquetResultListener : ResultListener
     {
         private readonly Dictionary<Guid, string> _planGuidToDirectoryName = new Dictionary<Guid, string>();
@@ -17,7 +17,7 @@ namespace OpenTap.Plugins.Parquet
 
         public ParquetResultListener()
         {
-            Name = nameof(ParquetResultListener);
+            Name = "Parquet";
         }
 
         public override void Open()
@@ -88,7 +88,7 @@ namespace OpenTap.Plugins.Parquet
             if (!_hasWrittenParameters.Contains(stepRun.Id))
             {
                 TestPlanRun planRun = GetPlanRun(stepRun);
-                string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{stepRun.TestStepName}.parquet";
+                string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{planRun.TestPlanName}.parquet";
                 SchemaBuilder schema = new SchemaBuilder();
                 schema.AddStepParameters(stepRun);
                 ParquetFile file = GetOrCreateParquetFile(schema, path);
@@ -103,7 +103,7 @@ namespace OpenTap.Plugins.Parquet
             TestStepRun stepRun = _guidToStepRuns[stepRunId];
             TestPlanRun planRun = GetPlanRun(stepRun);
 
-            string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{result.Name}.parquet";
+            string path = $"{_planGuidToDirectoryName[planRun.Id]}{Path.DirectorySeparatorChar}{planRun.TestPlanName}.parquet";
             SchemaBuilder schema = new SchemaBuilder();
             schema.AddResultFields(stepRun, result);
             ParquetFile file = GetOrCreateParquetFile(schema, path);

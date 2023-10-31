@@ -87,7 +87,7 @@ namespace OpenTap.Plugins.Parquet
 
         internal static string GetValidParquetName(params string[] path)
         {
-            return string.Join("/", path).Replace(".", ",");
+            return string.Join("/", path).Replace(".", " ").Replace(",", " ");
         }
 
         private static DataField CreateField(Type type, params string[] path)
