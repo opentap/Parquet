@@ -20,38 +20,53 @@ namespace OpenTap.Plugins.Parquet
 
         internal ParquetFile(SchemaBuilder schema, string path)
         {
-            // If the file already exists we should merge the new file with the old data first.
-            bool merge = File.Exists(path);
-            if (merge)
+            if (!File.Exists(path))
+            {
+                _schema = schema.ToSchema();
+                _stream = File.OpenWrite(path);
+                _writer = new ParquetWriter(_schema, _stream);
+                _cachedData = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
+                Path = path;
+            }
+            else
             {
                 File.Move(path, path + ".tmp");
-            }
+                using Stream stream = File.OpenRead(path + ".tmp");
+                using ParquetReader reader = new ParquetReader(stream);
+                schema.Union(reader.Schema);
+                _schema = schema.ToSchema();
+                _stream = File.OpenWrite(path);
+                _writer = new ParquetWriter(_schema, _stream);
+                _cachedData = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
+                Path = path;
 
-            _schema = schema.ToSchema();
-            _stream = File.OpenWrite(path);
-            _writer = new ParquetWriter(_schema, _stream);
-            _cachedData = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
-            Path = path;
-
-            if (!merge)
-            {
-                return;
-            }
-            using Stream stream = File.OpenRead(path + ".tmp");
-            using ParquetReader reader = new ParquetReader(stream);
-            schema.Union(reader.Schema);
-            _schema = schema.ToSchema();
-
-            for (int i = 0; i < reader.RowGroupCount; i++)
-            {
-                using ParquetRowGroupReader groupReader = reader.OpenRowGroupReader(i);
-                using ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();    
-
-                foreach (DataField field in _schema.GetDataFields())
+                HashSet<DataField> fields = reader.Schema.GetDataFields().ToHashSet();
+                for (int i = 0; i < reader.RowGroupCount; i++)
                 {
-                    DataColumn column = groupReader.ReadColumn(field);
-                    groupWriter.WriteColumn(column);
+                    using ParquetRowGroupReader groupReader = reader.OpenRowGroupReader(i);
+                    using ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();
+
+                    foreach (DataField field in _schema.GetDataFields())
+                    {
+                        DataColumn column;
+                        if (fields.Contains(field))
+                        {
+                            Array data = groupReader.ReadColumn(field).Data;
+                            column = new DataColumn(field, data);
+                        }
+                        else
+                        {
+                            ArrayList arrayList = new ArrayList(Enumerable.Repeat<object?>(null, (int)groupReader.RowCount).ToArray());
+                            Array data = ConvertList(arrayList, field.DataType);
+                            column = new DataColumn(field, data);
+                        }
+                        groupWriter.WriteColumn(column);
+                    }
                 }
+                reader.Dispose();
+                stream.Flush();
+                stream.Dispose();
+                File.Delete(path + ".tmp");
             }
         }
 
