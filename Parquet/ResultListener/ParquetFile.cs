@@ -33,14 +33,25 @@ namespace OpenTap.Plugins.Parquet
             _cachedData = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
             Path = path;
 
-            if (merge)
+            if (!merge)
             {
-                using Stream stream = File.OpenRead(path + ".tmp");
-                using ParquetReader reader = new ParquetReader(stream);
-                schema.Union(reader.Schema);
-                _schema = schema.ToSchema();
+                return;
+            }
+            using Stream stream = File.OpenRead(path + ".tmp");
+            using ParquetReader reader = new ParquetReader(stream);
+            schema.Union(reader.Schema);
+            _schema = schema.ToSchema();
 
+            for (int i = 0; i < reader.RowGroupCount; i++)
+            {
+                using ParquetRowGroupReader groupReader = reader.OpenRowGroupReader(i);
+                using ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();    
 
+                foreach (DataField field in _schema.GetDataFields())
+                {
+                    DataColumn column = groupReader.ReadColumn(field);
+                    groupWriter.WriteColumn(column);
+                }
             }
         }
 
@@ -48,126 +59,50 @@ namespace OpenTap.Plugins.Parquet
         {
             Dictionary<string, IConvertible> parameters = GetParameters(planRun);
 
-            foreach (DataField field in _schema.GetDataFields())
-            {
-                ArrayList column = _cachedData[field];
-                switch (SchemaBuilder.GetColumnType(field, out string name))
-                {
-                    case ColumnType.Plan:
-                        column.Add(parameters[name]);
-                        break;
-                    case ColumnType.Step:
-                        column.Add(null);
-                        break;
-                    case ColumnType.Result:
-                        column.Add(null);
-                        break;
-                    case ColumnType.Guid:
-                        column.Add(planRun.Id);
-                        break;
-                    case ColumnType.Parent:
-                        column.Add(null);
-                        break;
-                        // TODO: Default?
-                }
-            }
-            _rowCount += 1;
-            if (_rowCount > 500)
-            {
-                WriteCache();
-            }
+            AddRows(parameters, null, null, planRun.Id, null);
         }
 
         internal void OnlyParameters(TestStepRun stepRun)
         {
             Dictionary<string, IConvertible> parameters = GetParameters(stepRun);
 
-            foreach (DataField field in _schema.GetDataFields())
-            {
-                ArrayList column = _cachedData[field];
-                switch (SchemaBuilder.GetColumnType(field, out string name))
-                {
-                    case ColumnType.Plan:
-                        column.Add(null);
-                        break;
-                    case ColumnType.Step:
-                        column.Add(parameters[name]);
-                        break;
-                    case ColumnType.Result:
-                        column.Add(null);
-                        break;
-                    case ColumnType.Guid:
-                        column.Add(stepRun.Id);
-                        break;
-                    case ColumnType.Parent:
-                        column.Add(stepRun.Parent);
-                        break;
-                        // TODO: Default?
-                }
-            }
-            _rowCount += 1;
-            if (_rowCount > 500)
-            {
-                WriteCache();
-            }
+            AddRows(null, parameters, null, stepRun.Id, stepRun.Parent);
         }
 
         internal void Results(TestStepRun stepRun, ResultTable table)
         {
             Dictionary<string, IConvertible> parameters = GetParameters(stepRun);
-            Dictionary<string, Array> results = table.Columns.ToDictionary(c => c.Name, c => c.Data);
-            int count = table.Columns.Max(c => c.Data.Length);
+            Dictionary<string, Array> results = GetResults(table);
 
-            foreach (DataField field in _schema.GetDataFields())
-            {
-                ArrayList column = _cachedData[field];
-                switch (SchemaBuilder.GetColumnType(field, out string name))
-                {
-                    case ColumnType.Plan:
-                        column.AddRange(Enumerable.Repeat<object?>(null, count).ToArray());
-                        break;
-                    case ColumnType.Step:
-                        column.AddRange(Enumerable.Repeat(parameters[name], count).ToArray());
-                        break;
-                    case ColumnType.Result:
-                        column.AddRange(results[name]);
-                        break;
-                    case ColumnType.Guid:
-                        column.AddRange(Enumerable.Repeat(stepRun.Id, count).ToArray());
-                        break;
-                    case ColumnType.Parent:
-                        column.AddRange(Enumerable.Repeat(stepRun.Parent, count).ToArray());
-                        break;
-                }
-            }
-            _rowCount += count;
-            if (_rowCount > 500)
-            {
-                WriteCache();
-            }
+            AddRows(null, parameters, results, stepRun.Id, stepRun.Parent);
         }
 
-        private void AddRows(Dictionary<string, IConvertible> planParameters, Dictionary<string, IConvertible> stepParameters, Dictionary<string, Array> results, Guid stepId, Guid parentId, int count)
+        private void AddRows(Dictionary<string, IConvertible>? planParameters,
+            Dictionary<string, IConvertible>? stepParameters,
+            Dictionary<string, Array>? results,
+            Guid? stepId,
+            Guid? parentId)
         {
+            int count = results?.Values.Max(d => d.Length) ?? 1;
             foreach (DataField field in _schema.GetDataFields())
             {
                 ArrayList column = _cachedData[field];
                 switch (SchemaBuilder.GetColumnType(field, out string name))
                 {
                     case ColumnType.Plan:
-                        column.AddRange(Enumerable.Repeat<object?>(null, count).ToArray());
+                        column.AddRange(Enumerable.Repeat(planParameters?[name], count).ToArray());
                         break;
                     case ColumnType.Step:
-                        column.AddRange(Enumerable.Repeat(stepParameters[name], count).ToArray());
+                        column.AddRange(Enumerable.Repeat(stepParameters?[name], count).ToArray());
                         break;
                     case ColumnType.Result:
-                        column.AddRange(results[name]);
+                        column.AddRange(results?[name] ?? Enumerable.Repeat<object?>(null, count).ToArray());
                         break;
                     case ColumnType.Guid:
                         column.AddRange(Enumerable.Repeat(stepId, count).ToArray());
                         break;
                     case ColumnType.Parent:
-                        column.AddRange(Enumerable.Repeat(stepRun.Parent, count).ToArray());
+                        column.AddRange(Enumerable.Repeat(parentId, count).ToArray());
                         break;
                 }
             }
@@ -260,6 +195,11 @@ namespace OpenTap.Plugins.Parquet
         {
             return planRun.Parameters
                             .ToDictionary(p => SchemaBuilder.GetValidParquetName(p.Group, p.Name), p => p.Value);
+        }
+
+        private static Dictionary<string, Array> GetResults(ResultTable table)
+        {
+            return table.Columns.ToDictionary(c => c.Name, c => c.Data);
         }
     }
 }
