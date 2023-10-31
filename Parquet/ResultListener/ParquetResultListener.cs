@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 
 namespace OpenTap.Plugins.Parquet
 {
@@ -13,7 +14,6 @@ namespace OpenTap.Plugins.Parquet
         private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRuns = new Dictionary<Guid, TestPlanRun>();
         private readonly Dictionary<Guid, TestStepRun> _guidToStepRuns = new Dictionary<Guid, TestStepRun>();
         private readonly HashSet<Guid> _hasWrittenParameters = new HashSet<Guid>();
-
 
         public ParquetResultListener()
         {
@@ -112,27 +112,20 @@ namespace OpenTap.Plugins.Parquet
             _hasWrittenParameters.Add(stepRunId);
         }
 
-        private ParquetFile GetOrCreateParquetFile(SchemaBuilder schema, string suggestedPath)
+        private ParquetFile GetOrCreateParquetFile(SchemaBuilder schema, string path)
         {
-            string path = suggestedPath;
-            int count = 0;
-            while (true)
+            if (!_parquetFiles.TryGetValue(path, out ParquetFile? file))
             {
-                if (!_parquetFiles.TryGetValue(path, out ParquetFile? file))
-                {
-                    file = new ParquetFile(schema, path);
-                    _parquetFiles[path] = file;
-                    return file;
-                }
-                if (file.CanContain(schema))
-                {
-                    return file;
-                }
-                count += 1;
-                string dirPath = new DirectoryInfo(suggestedPath).Parent.FullName;
-                string fileName = $"{Path.GetFileNameWithoutExtension(suggestedPath)}({count}){Path.GetExtension(suggestedPath)}";
-                path = Path.Combine(dirPath, fileName);
+                file = new ParquetFile(schema, path);
+                _parquetFiles[path] = file;
             }
+            else if (!file.CanContain(schema))
+            {
+                file.Dispose();
+                file = new ParquetFile(schema, path);
+                _parquetFiles[path] = file;
+            }
+            return file;
         }
 
         private TestPlanRun GetPlanRun(TestStepRun run)

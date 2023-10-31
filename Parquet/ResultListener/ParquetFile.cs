@@ -130,8 +130,7 @@ namespace OpenTap.Plugins.Parquet
 
         internal bool CanContain(SchemaBuilder schema)
         {
-            // TODO: Check subset instead of equality.
-            return _schema.Equals(schema);
+            return _schema.GetDataFields().ToHashSet().IsSubsetOf(schema.GetDataFields());
         }
 
         public void Dispose()

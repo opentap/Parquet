@@ -1,4 +1,5 @@
-﻿using Parquet.Data;
+﻿using Parquet;
+using Parquet.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
