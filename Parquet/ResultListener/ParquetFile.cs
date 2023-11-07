@@ -136,10 +136,9 @@ namespace OpenTap.Plugins.Parquet
         {
             _rowCount = 0;
             ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();
-            foreach (KeyValuePair<DataField, ArrayList> kvp in _cachedData)
+            foreach (DataField field in _schema.GetDataFields())
             {
-                DataField field = kvp.Key;
-                ArrayList list = kvp.Value;
+                ArrayList list = _cachedData[field];
                 Array data = ConvertList(list, field.DataType);
                 DataColumn column = new DataColumn(field, data);
                 groupWriter.WriteColumn(column);
@@ -190,7 +189,7 @@ namespace OpenTap.Plugins.Parquet
                 case DataType.UnsignedInt64:
                     return list.ToArray(typeof(ulong?));
                 case DataType.String:
-                    return list.OfType<object?>().Select(o => o?.ToString()).ToArray();
+                    return list.Cast<object?>().Select(o => o?.ToString()).ToArray();
                 case DataType.Float:
                     return list.ToArray(typeof(float?));
                 case DataType.Double:
