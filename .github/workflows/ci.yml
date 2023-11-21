@@ -54,7 +54,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Build
-        run: dotnet test
+        run: dotnet test -c Release
 
   ##############
   ### PUBLISH ##
