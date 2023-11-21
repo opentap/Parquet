@@ -61,7 +61,7 @@ namespace OpenTap.Plugins.Parquet
 
             if (!_hasWrittenParameters.Contains(planRun.Id))
             {
-                string path = FilePath.Expand(planRun, DateTime.Now, "./", new Dictionary<string, object>
+                string path = FilePath.Expand(planRun, planRun.StartTime, "./", new Dictionary<string, object>
                 {
                     { "ResultType", "Plan" }
                 });
@@ -93,7 +93,7 @@ namespace OpenTap.Plugins.Parquet
             if (!_hasWrittenParameters.Contains(stepRun.Id))
             {
                 TestPlanRun planRun = GetPlanRun(stepRun);
-                string path = FilePath.Expand(planRun, DateTime.Now, "./", new Dictionary<string, object>
+                string path = FilePath.Expand(planRun, planRun.StartTime, "./", new Dictionary<string, object>
                 {
                     { "ResultType", "Plan" }
                 });
@@ -111,7 +111,7 @@ namespace OpenTap.Plugins.Parquet
             TestStepRun stepRun = _guidToStepRuns[stepRunId];
             TestPlanRun planRun = GetPlanRun(stepRun);
 
-            string path = FilePath.Expand(planRun, DateTime.Now, "./", new Dictionary<string, object>
+            string path = FilePath.Expand(planRun, planRun.StartTime, "./", new Dictionary<string, object>
             {
                 { "ResultType", result.Name }
             });
