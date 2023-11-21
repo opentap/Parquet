@@ -5,7 +5,7 @@ using System.IO;
 
 namespace OpenTap.Plugins.Parquet
 {
-    [Display("Parquet Result Listener", "Save results in a Parquet file", "Database")]
+    [Display("Parquet", "Save results in a Parquet file", "Database")]
     public sealed class ParquetResultListener : ResultListener
     {
         private readonly Dictionary<Guid, string> _planGuidToDirectoryName = new Dictionary<Guid, string>();
@@ -17,7 +17,7 @@ namespace OpenTap.Plugins.Parquet
 
         public ParquetResultListener()
         {
-            Name = nameof(ParquetResultListener);
+            Name = "Parquet";
         }
 
         public override void Open()
