@@ -104,24 +104,24 @@ namespace OpenTap.Plugins.Parquet
             foreach (DataField field in _schema.GetDataFields())
             {
                 ArrayList column = _cachedData[field];
-                switch (SchemaBuilder.GetColumnType(field, out string name))
+                switch (SchemaBuilder.GetFieldType(field, out string name))
                 {
-                    case ColumnType.Plan:
+                    case FieldType.Plan:
                         column.AddRange(Enumerable.Repeat(planParameters?.GetValueOrDefault(name), count).ToArray());
                         break;
-                    case ColumnType.Step:
+                    case FieldType.Step:
                         column.AddRange(Enumerable.Repeat(stepParameters?.GetValueOrDefault(name), count).ToArray());
                         break;
-                    case ColumnType.Result:
+                    case FieldType.Result:
                         column.AddRange(results?.GetValueOrDefault(name) ?? Enumerable.Repeat<object?>(null, count).ToArray());
                         break;
-                    case ColumnType.ResultName:
+                    case FieldType.ResultName:
                         column.AddRange(Enumerable.Repeat(resultName, count).ToArray());
                         break;
-                    case ColumnType.Guid:
+                    case FieldType.Guid:
                         column.AddRange(Enumerable.Repeat(stepId, count).ToArray());
                         break;
-                    case ColumnType.Parent:
+                    case FieldType.Parent:
                         column.AddRange(Enumerable.Repeat(parentId, count).ToArray());
                         break;
                 }

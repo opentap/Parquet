@@ -46,12 +46,6 @@ namespace OpenTap.Plugins.Parquet
         {
             base.OnTestPlanRunStart(planRun);
 
-            //string dirName = $"Results/{planRun.TestPlanName}{planRun.StartTime.ToString("yy-MM-dd-HH-mm-ss")}";
-            //if (!Directory.Exists(dirName))
-            //{
-            //    Directory.CreateDirectory(dirName);
-            //}
-
             _guidToPlanRuns[planRun.Id] = planRun;
         }
 
@@ -66,7 +60,7 @@ namespace OpenTap.Plugins.Parquet
                     { "ResultType", "Plan" }
                 });
                 SchemaBuilder schema = new SchemaBuilder();
-                schema.AddPlanParameters(planRun);
+                schema.AddParameters(FieldType.Plan, planRun);
                 ParquetFile file = GetOrCreateParquetFile(schema, path);
                 file.OnlyParameters(planRun);
                 _hasWrittenParameters.Add(planRun.Id);
@@ -98,7 +92,7 @@ namespace OpenTap.Plugins.Parquet
                     { "ResultType", "Plan" }
                 });
                 SchemaBuilder schema = new SchemaBuilder();
-                schema.AddStepParameters(stepRun);
+                schema.AddParameters(FieldType.Step, stepRun);
                 ParquetFile file = GetOrCreateParquetFile(schema, path);
                 file.OnlyParameters(stepRun);
                 _hasWrittenParameters.Add(stepRun.Id);
@@ -116,7 +110,8 @@ namespace OpenTap.Plugins.Parquet
                 { "ResultType", result.Name }
             });
             SchemaBuilder schema = new SchemaBuilder();
-            schema.AddResultFields(stepRun, result);
+            schema.AddParameters(FieldType.Step, stepRun);
+            schema.AddResults(result);
             ParquetFile file = GetOrCreateParquetFile(schema, path);
             file.Results(stepRun, result);
 
