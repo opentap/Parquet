@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using OpenTap;
 using OpenTap.Plugins.Parquet;
 
 namespace Parquet.Tests

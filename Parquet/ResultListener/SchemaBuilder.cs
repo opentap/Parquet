@@ -101,7 +101,7 @@ namespace OpenTap.Plugins.Parquet
                 type = typeof(string);
             }
 
-            return new DataField(GetValidParquetName(path), type.GetNullableType());
+            return new DataField(GetValidParquetName(path), type.AsNullable());
         }
 
         internal static ColumnType GetColumnType(DataField field, out string name)
