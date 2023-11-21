@@ -1,4 +1,5 @@
-﻿using Parquet.Data;
+﻿using Parquet;
+using Parquet.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,6 +11,7 @@ namespace OpenTap.Plugins.Parquet
         Plan,
         Step,
         Result,
+        ResultName,
         Guid,
         Parent,
     }
@@ -19,6 +21,7 @@ namespace OpenTap.Plugins.Parquet
         private const string Plan = "Plan";
         private const string Step = "Step";
         private const string Result = "Result";
+        private const string ResultName = "ResultName";
         private const string Guid = "Guid";
         private const string Parent = "Parent";
 
@@ -28,14 +31,22 @@ namespace OpenTap.Plugins.Parquet
         {
             _fields = new List<DataField>()
             {
+                CreateField(typeof(string), ResultName),
                 CreateField(typeof(string), Guid),
                 CreateField(typeof(string), Parent),
             };
         }
 
-        internal SchemaBuilder AddResultFields(TestStepRun run, ResultTable result)
+        internal void Union(Schema schema)
         {
-            AddParameters(Step, run);
+            IEnumerable<DataField> fields = _fields.Union(schema.GetDataFields()).ToList();
+            _fields.Clear();
+            _fields.AddRange(fields);
+        }
+
+        internal void AddResultFields(TestStepRun run, ResultTable result)
+        {
+            AddStepParameters(run);
 
             foreach (ResultColumn? column in result.Columns)
             {
@@ -44,19 +55,16 @@ namespace OpenTap.Plugins.Parquet
                     _fields.Add(CreateField(column.Data.GetValue(0).GetType(), Result, column.Name));
                 }
             }
-            return this;
         }
 
-        internal SchemaBuilder AddStepParameters(TestStepRun run)
+        internal void AddStepParameters(TestStepRun run)
         {
             AddParameters(Step, run);
-            return this;
         }
 
-        internal SchemaBuilder AddPlanParameters(TestPlanRun run)
+        internal void AddPlanParameters(TestPlanRun run)
         {
             AddParameters(Plan, run);
-            return this;
         }
 
         internal Schema ToSchema()
@@ -80,6 +88,11 @@ namespace OpenTap.Plugins.Parquet
             }
         }
 
+        internal static string GetValidParquetName(params string[] path)
+        {
+            return string.Join("/", path).Replace(".", " ").Replace(",", " ");
+        }
+
         private static DataField CreateField(Type type, params string[] path)
         {
             // Enums not directly supported.
@@ -89,11 +102,6 @@ namespace OpenTap.Plugins.Parquet
             }
 
             return new DataField(GetValidParquetName(path), type.GetNullableType());
-        }
-
-        internal static string GetValidParquetName(params string[] path)
-        {
-            return string.Join("/", path).Replace(".", " ").Replace(",", " ");
         }
 
         internal static ColumnType GetColumnType(DataField field, out string name)
@@ -109,6 +117,10 @@ namespace OpenTap.Plugins.Parquet
                 case Result:
                     return ColumnType.Result;
                 default:
+                    if (field.Name == ResultName)
+                    {
+                        return ColumnType.ResultName;
+                    }
                     if (field.Name == Guid)
                     {
                         return ColumnType.Guid;
@@ -119,12 +131,6 @@ namespace OpenTap.Plugins.Parquet
                     }
                     throw new ArgumentException("Field was not created by the schema builder.", nameof(field));
             }
-        }
-
-        public override bool Equals(object? obj)
-        {
-            return obj is SchemaBuilder schema &&
-                   _fields.SequenceEqual(schema._fields);
         }
     }
 }

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace OpenTap.Plugins.Parquet
+namespace Parquet
 {
     internal static class TypeExtensions
     {
