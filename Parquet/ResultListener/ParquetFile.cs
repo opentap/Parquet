@@ -58,7 +58,7 @@ namespace OpenTap.Plugins.Parquet
                         else
                         {
                             ArrayList arrayList = new ArrayList(Enumerable.Repeat<object?>(null, (int)groupReader.RowCount).ToArray());
-                            Array data = ConvertList(arrayList, field.DataType);
+                            Array data = ArrayListExtensions.ConvertList(arrayList, field.DataType);
                             column = new DataColumn(field, data);
                         }
                         groupWriter.WriteColumn(column);
@@ -73,22 +73,22 @@ namespace OpenTap.Plugins.Parquet
 
         internal void OnlyParameters(TestPlanRun planRun)
         {
-            Dictionary<string, IConvertible> parameters = GetParameters(planRun);
+            Dictionary<string, IConvertible> parameters = TestRunExtensions.GetParameters(planRun);
 
             AddRows(parameters, null, null, null, planRun.Id, null);
         }
 
         internal void OnlyParameters(TestStepRun stepRun)
         {
-            Dictionary<string, IConvertible> parameters = GetParameters(stepRun);
+            Dictionary<string, IConvertible> parameters = TestRunExtensions.GetParameters(stepRun);
 
             AddRows(null, parameters, null, null, stepRun.Id, stepRun.Parent);
         }
 
         internal void Results(TestStepRun stepRun, ResultTable table)
         {
-            Dictionary<string, IConvertible> parameters = GetParameters(stepRun);
-            Dictionary<string, Array> results = GetResults(table);
+            Dictionary<string, IConvertible> parameters = stepRun.GetParameters();
+            Dictionary<string, Array> results = table.GetResults();
 
             AddRows(null, parameters, results, table.Name, stepRun.Id, stepRun.Parent);
         }
@@ -140,7 +140,7 @@ namespace OpenTap.Plugins.Parquet
             foreach (DataField field in _schema.GetDataFields())
             {
                 ArrayList list = _cachedData[field];
-                Array data = ConvertList(list, field.DataType);
+                Array data = list.ConvertList(field.DataType);
                 DataColumn column = new DataColumn(field, data);
                 groupWriter.WriteColumn(column);
                 list.Clear();
@@ -159,66 +159,6 @@ namespace OpenTap.Plugins.Parquet
             _stream.Flush();
             _writer.Dispose();
             _stream.Dispose();
-        }
-
-        private static Array ConvertList(ArrayList list, DataType type)
-        {
-            switch (type)
-            {
-                case DataType.Boolean:
-                    return list.ToArray(typeof(bool?));
-                case DataType.Byte:
-                    return list.ToArray(typeof(byte?));
-                case DataType.SignedByte:
-                    return list.ToArray(typeof(sbyte?));
-                case DataType.UnsignedByte:
-                    return list.ToArray(typeof(byte?));
-                case DataType.Short:
-                    return list.ToArray(typeof(short?));
-                case DataType.UnsignedShort:
-                    return list.ToArray(typeof(ushort?));
-                case DataType.Int16:
-                    return list.ToArray(typeof(short?));
-                case DataType.UnsignedInt16:
-                    return list.ToArray(typeof(ushort?));
-                case DataType.Int32:
-                    return list.ToArray(typeof(int?));
-                case DataType.UnsignedInt32:
-                    return list.ToArray(typeof(uint?));
-                case DataType.Int64:
-                    return list.ToArray(typeof(long?));
-                case DataType.UnsignedInt64:
-                    return list.ToArray(typeof(ulong?));
-                case DataType.String:
-                    return list.Cast<object?>().Select(o => o?.ToString()).ToArray();
-                case DataType.Float:
-                    return list.ToArray(typeof(float?));
-                case DataType.Double:
-                    return list.ToArray(typeof(double?));
-                case DataType.Decimal:
-                    return list.ToArray(typeof(decimal?));
-                case DataType.TimeSpan:
-                    return list.ToArray(typeof(TimeSpan?));
-                case DataType.DateTimeOffset:
-                    return list.OfType<IConvertible?>().Select<IConvertible?, DateTimeOffset?>(dt => dt is null ? null : new DateTimeOffset((DateTime)dt)).ToArray();
-                case DataType.Unspecified:
-                case DataType.Int96:
-                case DataType.ByteArray:
-                case DataType.Interval:
-                default:
-                    throw new Exception($"Could not create column of type {type}");
-            }
-        }
-
-        private static Dictionary<string, IConvertible> GetParameters(TestRun planRun)
-        {
-            return planRun.Parameters
-                            .ToDictionary(p => SchemaBuilder.GetValidParquetName(p.Group, p.Name), p => p.Value);
-        }
-
-        private static Dictionary<string, Array> GetResults(ResultTable table)
-        {
-            return table.Columns.ToDictionary(c => c.Name, c => c.Data);
         }
     }
 }
