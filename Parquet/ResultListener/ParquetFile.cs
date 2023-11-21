@@ -11,8 +11,8 @@ namespace OpenTap.Plugins.Parquet
 {
     internal sealed class ParquetFileOptions
     {
-        public bool CloseWriter { get; } = true;
-        public bool CloseStream { get; } = true;
+        public bool CloseWriter { get; set; } = true;
+        public bool CloseStream { get; set; } = true;
     }
 
     internal sealed class ParquetFile : IDisposable
@@ -88,7 +88,7 @@ namespace OpenTap.Plugins.Parquet
             AddRows(stream);
         }
 
-        private void AddRows(Stream stream)
+        internal void AddRows(Stream stream)
         {
             using ParquetReader reader = new ParquetReader(stream);
             if (!CanContain(reader.Schema))
