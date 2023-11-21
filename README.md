@@ -11,9 +11,11 @@ These are the options available on the result listener at this moment.
 
 | Name | Description | Default value |
 |-|-|-|
-| File path  | The file path of the parquet file(s). Can use \<ResultType> to have one file per result type. | Results/\<TestPlanName>.\<Date>.parquet |
+| File path*  | The file path of the parquet file(s). Can use \<ResultType> to have one file per result type. Further documentation can be found here: https://doc.opentap.io/Developer%20Guide/Appendix%20A/#result-listeners | Results/\<TestPlanName>.\<Date>.parquet |
 
-Depending on what you have specified within the file path, a single test plan could result in one or more parquet files. All steps will allways generate atleast one row within a parquet file, and the test plan will always create one and only one row.
+> File path* note: This can severely impact performance as the result listener has to merge parquet files after writing them. The more you can seperate the results into seperate files by using \<ResultType> the better the result listener will perform.
+
+Depending on what you have specified within the file path, a single test plan could result in one or more parquet files. All steps will allways generate at least one row within a parquet file, and the test plan will always create one and only one row.
 
 All the options on all steps and the test plan are saved in seperate columns, each of those columns having groups that are split by '.'.
 > Note: The result listener uses the parquet files it reads as storage while running. Deleting the resulting parquet files might cause issues, so tread lightly.
