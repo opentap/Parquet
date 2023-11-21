@@ -9,91 +9,40 @@ using System.Linq;
 
 namespace OpenTap.Plugins.Parquet
 {
+    internal sealed class ParquetFileOptions
+    {
+        public bool CloseWriter { get; } = true;
+        public bool CloseStream { get; } = true;
+    }
+
     internal sealed class ParquetFile : IDisposable
     {
-        private Dictionary<DataField, ArrayList> _cachedData = new Dictionary<DataField, ArrayList>();
-        private readonly Schema _schema;
+        private Dictionary<DataField, ArrayList> _dataCache = new Dictionary<DataField, ArrayList>();
         private readonly Stream _stream;
         private readonly ParquetWriter _writer;
         private int _rowCount = 0;
 
-        public string Path { get; }
+        public ParquetFileOptions Options { get; }
 
-        internal ParquetFile(SchemaBuilder schema, string path)
+        public string Path { get; } = string.Empty;
+
+        public Schema Schema { get; }
+
+        internal ParquetFile(Schema schema, Stream writeStream, ParquetFileOptions? options = null)
         {
-            if (!File.Exists(path))
-            {
-                _schema = schema.ToSchema();
-                _stream = File.OpenWrite(path);
-                _writer = new ParquetWriter(_schema, _stream);
-                _cachedData = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
-                Path = path;
-            }
-            else
-            {
-                File.Move(path, path + ".tmp");
-                using Stream stream = File.OpenRead(path + ".tmp");
-                using ParquetReader reader = new ParquetReader(stream);
-                schema.Union(reader.Schema);
-                _schema = schema.ToSchema();
-                _stream = File.OpenWrite(path);
-                _writer = new ParquetWriter(_schema, _stream);
-                _cachedData = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
-                Path = path;
-
-                HashSet<DataField> fields = reader.Schema.GetDataFields().ToHashSet();
-                for (int i = 0; i < reader.RowGroupCount; i++)
-                {
-                    using ParquetRowGroupReader groupReader = reader.OpenRowGroupReader(i);
-                    using ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();
-
-                    foreach (DataField field in _schema.GetDataFields())
-                    {
-                        DataColumn column;
-                        if (fields.Contains(field))
-                        {
-                            Array data = groupReader.ReadColumn(field).Data;
-                            column = new DataColumn(field, data);
-                        }
-                        else
-                        {
-                            ArrayList arrayList = new ArrayList(Enumerable.Repeat<object?>(null, (int)groupReader.RowCount).ToArray());
-                            Array data = ArrayListExtensions.ConvertList(arrayList, field.DataType);
-                            column = new DataColumn(field, data);
-                        }
-                        groupWriter.WriteColumn(column);
-                    }
-                }
-                reader.Dispose();
-                stream.Flush();
-                stream.Dispose();
-                File.Delete(path + ".tmp");
-            }
+            Schema = schema;
+            _stream = writeStream;
+            _writer = new ParquetWriter(Schema, _stream);
+            _dataCache = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
+            Options = options ?? new ParquetFileOptions();
         }
 
-        internal void OnlyParameters(TestPlanRun planRun)
+        internal ParquetFile(Schema schema, string path, ParquetFileOptions? options = null) : this(schema, File.OpenWrite(path), options)
         {
-            Dictionary<string, IConvertible> parameters = TestRunExtensions.GetParameters(planRun);
-
-            AddRows(parameters, null, null, null, planRun.Id, null);
+            Path = path;
         }
 
-        internal void OnlyParameters(TestStepRun stepRun)
-        {
-            Dictionary<string, IConvertible> parameters = TestRunExtensions.GetParameters(stepRun);
-
-            AddRows(null, parameters, null, null, stepRun.Id, stepRun.Parent);
-        }
-
-        internal void Results(TestStepRun stepRun, ResultTable table)
-        {
-            Dictionary<string, IConvertible> parameters = stepRun.GetParameters();
-            Dictionary<string, Array> results = table.GetResults();
-
-            AddRows(null, parameters, results, table.Name, stepRun.Id, stepRun.Parent);
-        }
-
-        private void AddRows(Dictionary<string, IConvertible>? planParameters,
+        internal void AddRows(Dictionary<string, IConvertible>? planParameters,
             Dictionary<string, IConvertible>? stepParameters,
             Dictionary<string, Array>? results,
             string? resultName,
@@ -101,9 +50,9 @@ namespace OpenTap.Plugins.Parquet
             Guid? parentId)
         {
             int count = results?.Values.Max(d => d.Length) ?? 1;
-            foreach (DataField field in _schema.GetDataFields())
+            foreach (DataField field in Schema.GetDataFields())
             {
-                ArrayList column = _cachedData[field];
+                ArrayList column = _dataCache[field];
                 switch (SchemaBuilder.GetFieldType(field, out string name))
                 {
                     case FieldType.Plan:
@@ -133,13 +82,52 @@ namespace OpenTap.Plugins.Parquet
             }
         }
 
+        internal void AddRows(string path)
+        {
+            using Stream stream = File.OpenRead(path);
+            AddRows(stream);
+        }
+
+        private void AddRows(Stream stream)
+        {
+            using ParquetReader reader = new ParquetReader(stream);
+            if (!CanContain(reader.Schema))
+            {
+                throw new Exception("Tried to add rows to parquet file that weren't compatible with that file.");
+            }
+
+            HashSet<DataField> fields = reader.Schema.GetDataFields().ToHashSet();
+            for (int i = 0; i < reader.RowGroupCount; i++)
+            {
+                using ParquetRowGroupReader groupReader = reader.OpenRowGroupReader(i);
+                using ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();
+
+                foreach (DataField field in Schema.GetDataFields())
+                {
+                    DataColumn column;
+                    if (fields.Contains(field))
+                    {
+                        Array data = groupReader.ReadColumn(field).Data;
+                        column = new DataColumn(field, data);
+                    }
+                    else
+                    {
+                        ArrayList arrayList = new ArrayList(Enumerable.Repeat<object?>(null, (int)groupReader.RowCount).ToArray());
+                        Array data = ArrayListExtensions.ConvertList(arrayList, field.DataType);
+                        column = new DataColumn(field, data);
+                    }
+                    groupWriter.WriteColumn(column);
+                }
+            }
+        }
+
         private void WriteCache()
         {
             _rowCount = 0;
             ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();
-            foreach (DataField field in _schema.GetDataFields())
+            foreach (DataField field in Schema.GetDataFields())
             {
-                ArrayList list = _cachedData[field];
+                ArrayList list = _dataCache[field];
                 Array data = list.ConvertList(field.DataType);
                 DataColumn column = new DataColumn(field, data);
                 groupWriter.WriteColumn(column);
@@ -148,17 +136,22 @@ namespace OpenTap.Plugins.Parquet
             groupWriter.Dispose();
         }
 
-        internal bool CanContain(SchemaBuilder schema)
+        internal bool CanContain(Schema schema)
         {
-            return _schema.GetDataFields().ToHashSet().IsSubsetOf(schema.GetDataFields());
+            return schema.GetDataFields().ToHashSet().IsSubsetOf(Schema.GetDataFields());
         }
 
         public void Dispose()
         {
             WriteCache();
-            _stream.Flush();
-            _writer.Dispose();
-            _stream.Dispose();
+            if (Options.CloseWriter)
+            {
+                _writer.Dispose();
+            }
+            if (Options.CloseStream)
+            {
+                _stream.Dispose();
+            }
         }
     }
 }
