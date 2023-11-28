@@ -110,6 +110,7 @@ namespace Parquet.Tests
                 new DataField("Guid", typeof(string)),
                 new DataField("Parent", typeof(string)),
                 new DataField("Result/Result1", typeof(int?)),
+                new DataField("Result/Result1", typeof(string)),
                 new DataField("Result/StringResults", typeof(string)),
             });
 
@@ -121,6 +122,7 @@ namespace Parquet.Tests
             var builder = new SchemaBuilder();
             var columns = new ResultColumn[] {
                 new ResultColumn("Result1", new int[] { 0 }),
+                new ResultColumn("Result1", new string[] { "0" }),
                 new ResultColumn("StringResults", new string[] { "0" }),
             };
             var table = new ResultTable("Results", columns);
@@ -145,6 +147,7 @@ namespace Parquet.Tests
                 new DataField("Step/Float", typeof(float?)),
                 new DataField("Step/Enum", typeof(string)),
                 new DataField("Result/Result1", typeof(int?)),
+                new DataField("Result/Result1", typeof(string)),
                 new DataField("Result/StringResults", typeof(string)),
             });
 
