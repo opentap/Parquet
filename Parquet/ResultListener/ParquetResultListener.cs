@@ -17,7 +17,7 @@ namespace OpenTap.Plugins.Parquet
         private readonly HashSet<Guid> _hasWrittenParameters = new HashSet<Guid>();
 
         [Display("File path", "The file path of the parquet file(s). Can use <ResultType> to have one file per result type.")]
-        [FilePath]
+        [FilePath(FilePathAttribute.BehaviorChoice.Save)]
         public MacroString FilePath { get; set; } = new MacroString() { Text = "Results/<TestPlanName>.<Date>/<ResultType>.parquet" };
 
         public ParquetResultListener()
