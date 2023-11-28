@@ -18,7 +18,7 @@ namespace OpenTap.Plugins.Parquet
 
         [Display("File path", "The file path of the parquet file(s). Can use <ResultType> to have one file per result type.")]
         [FilePath]
-        public MacroString FilePath { get; set; } = new MacroString() { Text = "Results/<TestPlanName>.<Date>.parquet" };
+        public MacroString FilePath { get; set; } = new MacroString() { Text = "Results/<TestPlanName>.<Date>/<ResultType>.parquet" };
 
         public ParquetResultListener()
         {
