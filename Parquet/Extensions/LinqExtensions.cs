@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Parquet
+namespace Parquet.Extensions
 {
     internal static class LinqExtensions
     {
