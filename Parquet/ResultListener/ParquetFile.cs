@@ -124,7 +124,7 @@ namespace OpenTap.Plugins.Parquet
         private void WriteCache()
         {
             _rowCount = 0;
-            ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();
+            using ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();
             foreach (DataField field in Schema.GetDataFields())
             {
                 ArrayList list = _dataCache[field];
@@ -133,7 +133,6 @@ namespace OpenTap.Plugins.Parquet
                 groupWriter.WriteColumn(column);
                 list.Clear();
             }
-            groupWriter.Dispose();
         }
 
         internal bool CanContain(Schema schema)
