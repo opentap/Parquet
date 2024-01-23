@@ -15,6 +15,7 @@ namespace OpenTap.Plugins.Parquet
         private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRuns = new Dictionary<Guid, TestPlanRun>();
         private readonly Dictionary<Guid, TestStepRun> _guidToStepRuns = new Dictionary<Guid, TestStepRun>();
         private readonly HashSet<Guid> _hasWrittenParameters = new HashSet<Guid>();
+        private readonly Dictionary<string, TestPlanRun> _filesBelongingToRun = new Dictionary<string, TestPlanRun>();
 
         [Display("File path", "The file path of the parquet file(s). Can use <ResultType> to have one file per result type.")]
         [FilePath(FilePathAttribute.BehaviorChoice.Save)]
@@ -62,7 +63,7 @@ namespace OpenTap.Plugins.Parquet
                 });
                 SchemaBuilder builder = new SchemaBuilder();
                 builder.AddParameters(FieldType.Plan, planRun);
-                ParquetFile file = GetOrCreateParquetFile(builder, path);
+                ParquetFile file = GetOrCreateParquetFile(planRun, builder, path);
                 file.AddRows(planRun.GetParameters(), null, null, null, planRun.Id, null);
                 _hasWrittenParameters.Add(planRun.Id);
             }
@@ -94,7 +95,7 @@ namespace OpenTap.Plugins.Parquet
                 });
                 SchemaBuilder builder = new SchemaBuilder();
                 builder.AddParameters(FieldType.Step, stepRun);
-                ParquetFile file = GetOrCreateParquetFile(builder, path);
+                ParquetFile file = GetOrCreateParquetFile(planRun, builder, path);
                 file.AddRows(null, stepRun.GetParameters(), null, null, stepRun.Id, stepRun.Parent);
                 _hasWrittenParameters.Add(stepRun.Id);
             }
@@ -113,14 +114,20 @@ namespace OpenTap.Plugins.Parquet
             SchemaBuilder builder = new SchemaBuilder();
             builder.AddParameters(FieldType.Step, stepRun);
             builder.AddResults(result);
-            ParquetFile file = GetOrCreateParquetFile(builder, path);
+            ParquetFile file = GetOrCreateParquetFile(planRun, builder, path);
             file.AddRows(null, stepRun.GetParameters(), result.GetResults(), result.Name, stepRun.Id, stepRun.Parent);
 
             _hasWrittenParameters.Add(stepRunId);
         }
 
-        private ParquetFile GetOrCreateParquetFile(SchemaBuilder builder, string path)
+        private ParquetFile GetOrCreateParquetFile(TestPlanRun planRun, SchemaBuilder builder, string path)
         {
+            if (_filesBelongingToRun.TryGetValue(path, out TestPlanRun run) && run != planRun)
+            {
+                File.Delete(path);
+                _parquetFiles.Remove(path);
+            }
+
             if (!_parquetFiles.TryGetValue(path, out ParquetFile? file))
             {
                 string dirPath = Path.GetDirectoryName(path);
@@ -146,6 +153,7 @@ namespace OpenTap.Plugins.Parquet
                 file.AddRows(tmpPath);
                 File.Delete(tmpPath);
             }
+            _filesBelongingToRun[path] = planRun;
 
             return file;
         }
