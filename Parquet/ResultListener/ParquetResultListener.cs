@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
 
 namespace OpenTap.Plugins.Parquet
 {
@@ -20,6 +21,9 @@ namespace OpenTap.Plugins.Parquet
         [Display("File path", "The file path of the parquet file(s). Can use <ResultType> to have one file per result type.")]
         [FilePath(FilePathAttribute.BehaviorChoice.Save)]
         public MacroString FilePath { get; set; } = new MacroString() { Text = "Results/<TestPlanName>.<Date>/<ResultType>.parquet" };
+
+        [Display("Delete on publish", "If true the files will be removed when published as artifacts.")]
+        public bool DeleteOnPublish { get; set; } = false;
 
         public ParquetResultListener()
         {
@@ -71,7 +75,13 @@ namespace OpenTap.Plugins.Parquet
             foreach (ParquetFile file in _parquetFiles.Values)
             {
                 file.Dispose();
-                planRun.PublishArtifact(file.Path);
+                planRun.PublishArtifactAsync(file.Path).ContinueWith(_ =>
+                {
+                    if (DeleteOnPublish)
+                    {
+                        File.Delete(file.Path);
+                    }
+                });
             }
             _parquetFiles.Clear();
         }
