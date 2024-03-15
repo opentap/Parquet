@@ -23,7 +23,7 @@ namespace Parquet.Tests
             using var stream = new MemoryStream();
             var stepGuid = Guid.NewGuid();
             var parentGuid = Guid.NewGuid();
-            using (var file = new ParquetFile(schema, stream, new ParquetFileOptions() { CloseStream = false }))
+            using (var file = new ParquetFile(GetType(), schema, stream, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(null, null, null, "ResultName", stepGuid, parentGuid);
             }
@@ -49,7 +49,7 @@ namespace Parquet.Tests
             using var stream1 = new MemoryStream();
             var stepGuid1 = Guid.NewGuid();
             var parentGuid1 = Guid.NewGuid();
-            using (var file = new ParquetFile(schema, stream1, new ParquetFileOptions() { CloseStream = false }))
+            using (var file = new ParquetFile(GetType(), schema, stream1, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(null, null, null, "ResultName", stepGuid1, parentGuid1);
             }
@@ -57,7 +57,7 @@ namespace Parquet.Tests
             using var stream2 = new MemoryStream();
             var stepGuid2 = Guid.NewGuid();
             var parentGuid2 = Guid.NewGuid();
-            using (var file = new ParquetFile(schema, stream2, new ParquetFileOptions() { CloseStream = false }))
+            using (var file = new ParquetFile(GetType(), schema, stream2, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(stream1);
                 file.AddRows(null, null, null, "ResultName2", stepGuid2, parentGuid2);
@@ -88,7 +88,7 @@ namespace Parquet.Tests
             using var stream1 = new MemoryStream();
             var stepGuid1 = Guid.NewGuid();
             var parentGuid1 = Guid.NewGuid();
-            using (var file = new ParquetFile(schema1, stream1, new ParquetFileOptions() { CloseStream = false }))
+            using (var file = new ParquetFile(GetType(), schema1, stream1, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(null, null, null, "ResultName", stepGuid1, parentGuid1);
             }
@@ -105,7 +105,7 @@ namespace Parquet.Tests
             using var stream2 = new MemoryStream();
             var stepGuid2 = Guid.NewGuid();
             var parentGuid2 = Guid.NewGuid();
-            using (var file = new ParquetFile(schema2, stream2, new ParquetFileOptions() { CloseStream = false }))
+            using (var file = new ParquetFile(GetType(), schema2, stream2, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(stream1);
                 file.AddRows(null, null, table.GetResults(), "ResultName2", stepGuid2, parentGuid2);
@@ -126,6 +126,29 @@ namespace Parquet.Tests
                 Assert.That(columns2.Skip(2).First().Data.GetValue(0)?.ToString(), Is.EqualTo(parentGuid2.ToString()));
                 Assert.That(columns1.Skip(3).First().Data.GetValue(0)?.ToString(), Is.EqualTo(null));
                 Assert.That(columns2.Skip(3).First().Data.GetValue(0)?.ToString(), Is.EqualTo("Test"));
+            }
+        }
+
+        [Test]
+        public void CreateMetadata()
+        {
+            var builder = new SchemaBuilder();
+            var schema = builder.ToSchema();
+
+            using var stream = new MemoryStream();
+            var stepGuid = Guid.NewGuid();
+            var parentGuid = Guid.NewGuid();
+            using (var file = new ParquetFile(GetType(), schema, stream, new ParquetFileOptions() { CloseStream = false }))
+            {
+                file.AddRows(null, null, null, "ResultName", stepGuid, parentGuid);
+            }
+
+            using (var reader = new ParquetReader(stream))
+            {
+                Assert.That(reader.CustomMetadata["SchemaVersion"], Is.EqualTo("1.0.0.0"));
+                Assert.That(reader.CustomMetadata["Tool"], Is.EqualTo("Parquet.Tests.ParquetFileTests"));
+                Assert.That(DateTime.TryParse(reader.CustomMetadata["Time"], out _), Is.True);
+                Assert.That(reader.CustomMetadata["ToolVersion"], Is.EqualTo("1.0.0.0"));
             }
         }
     }

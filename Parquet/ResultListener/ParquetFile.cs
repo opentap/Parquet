@@ -42,7 +42,7 @@ namespace OpenTap.Plugins.Parquet
             FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(assemblyLocation);
             _writer.CustomMetadata = new Dictionary<string, string>()
             {
-                {"SchemaVersion", "1.0.0" },
+                {"SchemaVersion", new Version(1, 0, 0, 0).ToString() },
                 {"Tool", generatingTool.FullName },
                 {"Time", DateTime.Now.ToString("G") },
                 {"ToolVersion", versionInfo.FileVersion }
