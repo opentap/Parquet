@@ -6,10 +6,18 @@ using OpenTap.Plugins.Parquet;
 
 namespace Parquet.Extensions
 {
-    internal static class TestRunExtensions
+    /// <summary>
+    /// Extensions to test run classes.
+    /// </summary>
+    public static class TestRunExtensions
     {
 
-        internal static Dictionary<string, IConvertible> GetParameters(this TestRun run)
+        /// <summary>
+        /// Get parameters in a dictionary for a <see cref="ParquetFile"/>.
+        /// </summary>
+        /// <param name="run">The run to get the parameters from.</param>
+        /// <returns>A dictionary of parameter names and values.</returns>
+        public static Dictionary<string, IConvertible> GetParameters(this TestRun run)
         {
             return run.Parameters
                             .ToDictionary(p => SchemaBuilder.GetValidParquetName(p.Group, p.Name), p => p.Value);
