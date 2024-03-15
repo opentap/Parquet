@@ -123,15 +123,22 @@ namespace OpenTap.Plugins.Parquet
 
         private void WriteCache()
         {
-            _rowCount = 0;
-            using ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();
-            foreach (DataField field in Schema.GetDataFields())
+            try
             {
-                ArrayList list = _dataCache[field];
-                Array data = list.ConvertList(field.DataType);
-                DataColumn column = new DataColumn(field, data);
-                groupWriter.WriteColumn(column);
-                list.Clear();
+                _rowCount = 0;
+                using ParquetRowGroupWriter groupWriter = _writer.CreateRowGroup();
+                foreach (DataField field in Schema.GetDataFields())
+                {
+                    ArrayList list = _dataCache[field];
+                    Array data = list.ConvertList(field.DataType);
+                    DataColumn column = new DataColumn(field, data);
+                    groupWriter.WriteColumn(column);
+                    list.Clear();
+                }
+            }
+            catch (Exception ex)
+            {
+                ParquetResultListener.Log.Error(ex);
             }
         }
 
