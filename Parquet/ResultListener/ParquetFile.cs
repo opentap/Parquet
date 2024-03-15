@@ -4,8 +4,10 @@ using Parquet.Extensions;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 
 namespace OpenTap.Plugins.Parquet
 {
@@ -28,16 +30,26 @@ namespace OpenTap.Plugins.Parquet
 
         public Schema Schema { get; }
 
-        internal ParquetFile(Schema schema, Stream writeStream, ParquetFileOptions? options = null)
+        internal ParquetFile(Type generatingTool, Schema schema, Stream writeStream, ParquetFileOptions? options = null)
         {
             Schema = schema;
             _stream = writeStream;
             _writer = new ParquetWriter(Schema, _stream);
             _dataCache = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
             Options = options ?? new ParquetFileOptions();
+
+            string assemblyLocation = generatingTool.Assembly.Location;
+            FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(assemblyLocation);
+            _writer.CustomMetadata = new Dictionary<string, string>()
+            {
+                {"SchemaVersion", "1.0.0" },
+                {"Tool", generatingTool.FullName },
+                {"Time", DateTime.Now.ToString("G") },
+                {"ToolVersion", versionInfo.FileVersion }
+            };
         }
 
-        internal ParquetFile(Schema schema, string path, ParquetFileOptions? options = null) : this(schema, File.OpenWrite(path), options)
+        internal ParquetFile(Type generatingTool, Schema schema, string path, ParquetFileOptions? options = null) : this(generatingTool, schema, File.OpenWrite(path), options)
         {
             Path = path;
         }

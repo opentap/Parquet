@@ -146,7 +146,7 @@ namespace OpenTap.Plugins.Parquet
                     Directory.CreateDirectory(dirPath);
                 }
 
-                file = new ParquetFile(builder.ToSchema(), path);
+                file = new ParquetFile(GetType(), builder.ToSchema(), path);
                 _parquetFiles[path] = file;
             }
             
@@ -157,7 +157,7 @@ namespace OpenTap.Plugins.Parquet
                 string tmpPath = path + ".tmp";
                 File.Move(path, tmpPath);
 
-                file = new ParquetFile(builder.ToSchema(), path);
+                file = new ParquetFile(GetType(), builder.ToSchema(), path);
                 _parquetFiles[path] = file;
 
                 file.AddRows(tmpPath);
