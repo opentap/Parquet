@@ -12,7 +12,7 @@ namespace OpenTap.Plugins.Parquet
     [Display("Parquet", "Save results in a Parquet file", "Database")]
     public sealed class ParquetResultListener : ResultListener
     {
-        public static TraceSource Log { get; } = OpenTap.Log.CreateSource("Parquet");
+        internal static TraceSource Log { get; } = OpenTap.Log.CreateSource("Parquet");
 
         private readonly Dictionary<string, ParquetFile> _parquetFiles = new Dictionary<string, ParquetFile>();
         private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRuns = new Dictionary<Guid, TestPlanRun>();
