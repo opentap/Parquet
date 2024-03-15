@@ -6,7 +6,10 @@ using System.Linq;
 
 namespace OpenTap.Plugins.Parquet
 {
-    internal enum FieldType
+    /// <summary>
+    /// An enum specifying the type of field stored in a column.
+    /// </summary>
+    public enum FieldType
     {
         Plan,
         Step,
@@ -16,11 +19,17 @@ namespace OpenTap.Plugins.Parquet
         Parent,
     }
 
-    internal class SchemaBuilder
+    /// <summary>
+    /// Can build a schema for a <see cref="ParquetFile"/>.
+    /// </summary>
+    public class SchemaBuilder
     {
         private readonly List<DataField> _fields;
 
-        internal SchemaBuilder()
+        /// <summary>
+        /// Create a new schemabuilder with non optional collumns.
+        /// </summary>
+        public SchemaBuilder()
         {
             _fields = new List<DataField>()
             {
@@ -30,14 +39,22 @@ namespace OpenTap.Plugins.Parquet
             };
         }
 
-        internal void Union(Schema schema)
+        /// <summary>
+        /// Union this schema with another already built schema. Adding the fields of the other schema to this schema.
+        /// </summary>
+        /// <param name="schema">The other schema to union with this one.</param>
+        public void Union(Schema schema)
         {
             IEnumerable<DataField> fields = _fields.Union(schema.GetDataFields()).ToList();
             _fields.Clear();
             _fields.AddRange(fields);
         }
 
-        internal void AddResults(ResultTable result)
+        /// <summary>
+        /// Add result columns to this schema builder.
+        /// </summary>
+        /// <param name="result">The result table to get the columns from.</param>
+        public void AddResults(ResultTable result)
         {
             foreach (ResultColumn? column in result.Columns)
             {
@@ -48,25 +65,57 @@ namespace OpenTap.Plugins.Parquet
             }
         }
 
-        internal Schema ToSchema()
+        /// <summary>
+        /// Add step parameters as columns to the schema.
+        /// </summary>
+        /// <param name="parameters">The parameters of the step.</param>
+        public void AddStepParameters(IEnumerable<(IConvertible value, string group, string name)> parameters)
+        {
+            _fields.AddRange(parameters.Select(p => CreateField(p.value.GetType(), FieldType.Step.ToString(), p.group, p.name)));
+        }
+
+        /// <inheritdoc cref="AddStepParameters(IEnumerable{ValueTuple{IConvertible, string, string}})"/>
+        public void AddStepParameters(params (IConvertible value, string group, string name)[] parameters)
+        {
+            AddStepParameters(parameters);
+        }
+
+        /// <inheritdoc cref="AddStepParameters(IEnumerable{ValueTuple{IConvertible, string, string}})"/>
+        /// <param name="stepRun">The step to add parameters from.</param>
+        public void AddStepParameters(TestStepRun stepRun)
+        {
+            AddStepParameters(stepRun.Parameters.Select(p => (p.Value, p.Group, p.Name)));
+        }
+
+        /// <summary>
+        /// Add plan parameters as columns to the schema.
+        /// </summary>
+        /// <param name="parameters">The parameters of the plan.</param>
+        public void AddPlanParameters(IEnumerable<(IConvertible value, string group, string name)> parameters)
+        {
+            _fields.AddRange(parameters.Select(p => CreateField(p.value.GetType(), FieldType.Plan.ToString(), p.group, p.name)));
+        }
+
+        /// <inheritdoc cref="AddPlanParameters(IEnumerable{ValueTuple{IConvertible, string, string}})"/>
+        public void AddPlanParameters(params (IConvertible value, string group, string name)[] parameters)
+        {
+            AddPlanParameters(parameters);
+        }
+
+        /// <inheritdoc cref="AddPlanParameters(IEnumerable{ValueTuple{IConvertible, string, string}})"/>
+        /// <param name="planRun">The plan to add parameters from.</param>
+        public void AddPlanParameters(TestPlanRun planRun)
+        {
+            AddPlanParameters(planRun.Parameters.Select(p => (p.Value, p.Group, p.Name)));
+        }
+
+        /// <summary>
+        /// Builds the schema of this schemabuilder, and returns the resulting schema.
+        /// </summary>
+        /// <returns>The schema containing all fields added to this schemabuilder.</returns>
+        public Schema ToSchema()
         {
             return new Schema(_fields);
-        }
-
-        internal IEnumerable<DataField> GetDataFields()
-        {
-            foreach (DataField field in _fields)
-            {
-                yield return field;
-            }
-        }
-
-        internal void AddParameters(FieldType group, TestRun run)
-        {
-            foreach (ResultParameter? parameter in run.Parameters)
-            {
-                _fields.Add(CreateField(parameter.Value.GetType(), group.ToString(), parameter.Group, parameter.Name));
-            }
         }
 
         internal static string GetValidParquetName(params string[] path)

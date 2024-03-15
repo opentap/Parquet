@@ -9,8 +9,11 @@ using System.Threading.Tasks;
 
 namespace OpenTap.Plugins.Parquet
 {
+    /// <summary>
+    /// A result listener outputting files in parquet format.
+    /// </summary>
     [Display("Parquet", "Save results in a Parquet file", "Database")]
-    public sealed class ParquetResultListener : ResultListener
+    public class ParquetResultListener : ResultListener
     {
         private readonly Dictionary<string, ParquetFile> _parquetFiles = new Dictionary<string, ParquetFile>();
         private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRuns = new Dictionary<Guid, TestPlanRun>();
@@ -18,13 +21,22 @@ namespace OpenTap.Plugins.Parquet
         private readonly HashSet<Guid> _hasWrittenParameters = new HashSet<Guid>();
         private readonly Dictionary<string, TestPlanRun> _filesBelongingToRun = new Dictionary<string, TestPlanRun>();
 
+        /// <summary>
+        /// The file path of the parquet file(s). Can use <ResultType> to have one file per result type.
+        /// </summary>
         [Display("File path", "The file path of the parquet file(s). Can use <ResultType> to have one file per result type.")]
         [FilePath(FilePathAttribute.BehaviorChoice.Save)]
         public MacroString FilePath { get; set; } = new MacroString() { Text = "Results/<TestPlanName>.<Date>/<ResultType>.parquet" };
 
+        /// <summary>
+        /// If true the files will be removed when published as artifacts.
+        /// </summary>
         [Display("Delete on publish", "If true the files will be removed when published as artifacts.")]
         public bool DeleteOnPublish { get; set; } = false;
 
+        /// <summary>
+        /// Constructs a new parquet result listener.
+        /// </summary>
         public ParquetResultListener()
         {
             Name = "Parquet";
@@ -66,7 +78,7 @@ namespace OpenTap.Plugins.Parquet
                     { "ResultType", "Plan" }
                 });
                 SchemaBuilder builder = new SchemaBuilder();
-                builder.AddParameters(FieldType.Plan, planRun);
+                builder.AddPlanParameters(planRun);
                 ParquetFile file = GetOrCreateParquetFile(planRun, builder, path);
                 file.AddRows(planRun.GetParameters(), null, null, null, planRun.Id, null);
                 _hasWrittenParameters.Add(planRun.Id);
@@ -104,7 +116,7 @@ namespace OpenTap.Plugins.Parquet
                     { "ResultType", "Plan" }
                 });
                 SchemaBuilder builder = new SchemaBuilder();
-                builder.AddParameters(FieldType.Step, stepRun);
+                builder.AddStepParameters(stepRun);
                 ParquetFile file = GetOrCreateParquetFile(planRun, builder, path);
                 file.AddRows(null, stepRun.GetParameters(), null, null, stepRun.Id, stepRun.Parent);
                 _hasWrittenParameters.Add(stepRun.Id);
@@ -122,7 +134,7 @@ namespace OpenTap.Plugins.Parquet
                 { "ResultType", result.Name }
             });
             SchemaBuilder builder = new SchemaBuilder();
-            builder.AddParameters(FieldType.Step, stepRun);
+            builder.AddStepParameters(stepRun);
             builder.AddResults(result);
             ParquetFile file = GetOrCreateParquetFile(planRun, builder, path);
             file.AddRows(null, stepRun.GetParameters(), result.GetResults(), result.Name, stepRun.Id, stepRun.Parent);
@@ -130,7 +142,7 @@ namespace OpenTap.Plugins.Parquet
             _hasWrittenParameters.Add(stepRunId);
         }
 
-        private ParquetFile GetOrCreateParquetFile(TestPlanRun planRun, SchemaBuilder builder, string path)
+        internal ParquetFile GetOrCreateParquetFile(TestPlanRun planRun, SchemaBuilder builder, string path)
         {
             if (_filesBelongingToRun.TryGetValue(path, out TestPlanRun run) && run != planRun)
             {
