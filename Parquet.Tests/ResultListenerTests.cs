@@ -1,9 +1,11 @@
 ﻿using NUnit.Framework;
 using OpenTap;
 using OpenTap.Plugins.Parquet;
+using Parquet.Data;
 
 namespace Parquet.Tests
 {
+
     internal class ResultListenerTests
     {
         [Test]
@@ -42,6 +44,40 @@ namespace Parquet.Tests
             Assert.That(reader.RowGroupCount, Is.EqualTo(1));
             var rowgroup = reader.ReadEntireRowGroup(0);
             Assert.That(rowgroup.Any(c => c.Data.GetValue(0)?.Equals(result.Id.ToString()) ?? false), Is.True);
+        }
+
+        [Test]
+        public void TestColumnsExist()
+        {
+            var plan = new TestPlan();
+            var step = new MyTestStep();
+            plan.Steps.Add(step);
+            var resultListener = new ParquetResultListener();
+            resultListener.DeleteOnPublish = false;
+            resultListener.FilePath.Text = $"Results/Tests/{nameof(TestColumnsExist)}.parquet";
+
+            var result = plan.Execute(new ResultListener[] {resultListener}, Array.Empty<ResultParameter>());
+            result.WaitForResults();
+            Assert.That(System.IO.File.Exists($"Results/Tests/{nameof(TestColumnsExist)}.parquet"), Is.True);
+            resultListener.Close();
+            
+            using Stream stream = System.IO.File.OpenRead($"Results/Tests/{nameof(TestColumnsExist)}.parquet");
+            using ParquetReader reader = new ParquetReader(stream);
+            Assert.That(reader.RowGroupCount, Is.EqualTo(1));
+            Assert.That(reader.Schema.Fields, Does.Contain(new DataField("ResultName", typeof(string))));
+            Assert.That(reader.Schema.Fields, Does.Contain(new DataField("Guid", typeof(string))));
+            Assert.That(reader.Schema.Fields, Does.Contain(new DataField("Parent", typeof(string))));
+            Assert.That(reader.Schema.Fields, Does.Contain(new DataField("StepId", typeof(string))));
+            var rowGroup = reader.ReadEntireRowGroup(0);
+            Assert.That(rowGroup[3].Data, Does.Contain(step.Id.ToString()));
+        }
+
+        internal class MyTestStep : TestStep
+        {
+            public override void Run()
+            {
+
+            }
         }
     }
 }
