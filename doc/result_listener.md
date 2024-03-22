@@ -1,5 +1,16 @@
 # Result listener
-Add the result listener called `Parquet` to your test plan.
+The parquet result listener allows listening to events from OpenTAP and writing the data from these events into .parquet files. The data added consists of TestStep results, TestStep parameters and Plan parameters.
+
+To use the result listener follow the steps below:
+1. Install the Parquet tappackage `tap package install Parquet`
+2. Create/open a test plan in your favorite IDE
+3. Add a parquet result listener, located under "Database/Parquet"
+4. (Optional) configure the result listener so it outputs where/how you like.
+5. Run the test plan
+
+Now you should see a file appear at the given path, this file can be opened using TAD and in the future a resultstore will be added so it can be viewed in OpenTAP editors too.
+
+## Options
 These are the options available on the result listener at this moment.
 
 | Name | Description | Default value |
