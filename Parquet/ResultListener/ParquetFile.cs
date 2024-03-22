@@ -46,8 +46,9 @@ namespace OpenTap.Plugins.Parquet
             Dictionary<string, IConvertible>? stepParameters,
             Dictionary<string, Array>? results,
             string? resultName,
-            Guid? stepId,
-            Guid? parentId)
+            Guid? runId,
+            Guid? parentId,
+            Guid? stepId)
         {
             int count = results?.Values.Max(d => d.Length) ?? 1;
             foreach (DataField field in Schema.GetDataFields())
@@ -68,10 +69,13 @@ namespace OpenTap.Plugins.Parquet
                         column.AddRange(Enumerable.Repeat(resultName, count).ToArray());
                         break;
                     case FieldType.Guid:
-                        column.AddRange(Enumerable.Repeat(stepId, count).ToArray());
+                        column.AddRange(Enumerable.Repeat(runId, count).ToArray());
                         break;
                     case FieldType.Parent:
                         column.AddRange(Enumerable.Repeat(parentId, count).ToArray());
+                        break;
+                    case FieldType.StepId:
+                        column.AddRange(Enumerable.Repeat(stepId, count).ToArray());
                         break;
                 }
             }

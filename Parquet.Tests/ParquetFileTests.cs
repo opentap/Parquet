@@ -25,7 +25,7 @@ namespace Parquet.Tests
             var parentGuid = Guid.NewGuid();
             using (var file = new ParquetFile(schema, stream, new ParquetFileOptions() { CloseStream = false }))
             {
-                file.AddRows(null, null, null, "ResultName", stepGuid, parentGuid);
+                file.AddRows(null, null, null, "ResultName", stepGuid, parentGuid, null);
             }
 
             using (var reader = new ParquetReader(stream))
@@ -51,7 +51,7 @@ namespace Parquet.Tests
             var parentGuid1 = Guid.NewGuid();
             using (var file = new ParquetFile(schema, stream1, new ParquetFileOptions() { CloseStream = false }))
             {
-                file.AddRows(null, null, null, "ResultName", stepGuid1, parentGuid1);
+                file.AddRows(null, null, null, "ResultName", stepGuid1, parentGuid1, null);
             }
 
             using var stream2 = new MemoryStream();
@@ -60,7 +60,7 @@ namespace Parquet.Tests
             using (var file = new ParquetFile(schema, stream2, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(stream1);
-                file.AddRows(null, null, null, "ResultName2", stepGuid2, parentGuid2);
+                file.AddRows(null, null, null, "ResultName2", stepGuid2, parentGuid2, null);
             }
 
             using (var reader = new ParquetReader(stream2))
@@ -86,11 +86,11 @@ namespace Parquet.Tests
 
             var schema1 = builder.ToSchema();
             using var stream1 = new MemoryStream();
-            var stepGuid1 = Guid.NewGuid();
+            var runGuid1 = Guid.NewGuid();
             var parentGuid1 = Guid.NewGuid();
             using (var file = new ParquetFile(schema1, stream1, new ParquetFileOptions() { CloseStream = false }))
             {
-                file.AddRows(null, null, null, "ResultName", stepGuid1, parentGuid1);
+                file.AddRows(null, null, null, "ResultName", runGuid1, parentGuid1, null);
             }
 
             var table = new ResultTable(
@@ -103,12 +103,13 @@ namespace Parquet.Tests
             builder.AddResults(table);
             var schema2 = builder.ToSchema();
             using var stream2 = new MemoryStream();
-            var stepGuid2 = Guid.NewGuid();
+            var runGuid2 = Guid.NewGuid();
             var parentGuid2 = Guid.NewGuid();
+            var stepGuid = Guid.NewGuid();
             using (var file = new ParquetFile(schema2, stream2, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(stream1);
-                file.AddRows(null, null, table.GetResults(), "ResultName2", stepGuid2, parentGuid2);
+                file.AddRows(null, null, table.GetResults(), "ResultName2", runGuid2, parentGuid2, stepGuid);
             }
 
             using (var reader = new ParquetReader(stream2))
@@ -120,12 +121,14 @@ namespace Parquet.Tests
 
                 Assert.That(columns1.First().Data.GetValue(0), Is.EqualTo("ResultName"));
                 Assert.That(columns2.First().Data.GetValue(0), Is.EqualTo("ResultName2"));
-                Assert.That(columns1.Skip(1).First().Data.GetValue(0)?.ToString(), Is.EqualTo(stepGuid1.ToString()));
-                Assert.That(columns2.Skip(1).First().Data.GetValue(0)?.ToString(), Is.EqualTo(stepGuid2.ToString()));
+                Assert.That(columns1.Skip(1).First().Data.GetValue(0)?.ToString(), Is.EqualTo(runGuid1.ToString()));
+                Assert.That(columns2.Skip(1).First().Data.GetValue(0)?.ToString(), Is.EqualTo(runGuid2.ToString()));
                 Assert.That(columns1.Skip(2).First().Data.GetValue(0)?.ToString(), Is.EqualTo(parentGuid1.ToString()));
                 Assert.That(columns2.Skip(2).First().Data.GetValue(0)?.ToString(), Is.EqualTo(parentGuid2.ToString()));
                 Assert.That(columns1.Skip(3).First().Data.GetValue(0)?.ToString(), Is.EqualTo(null));
-                Assert.That(columns2.Skip(3).First().Data.GetValue(0)?.ToString(), Is.EqualTo("Test"));
+                Assert.That(columns2.Skip(3).First().Data.GetValue(0)?.ToString(), Is.EqualTo(stepGuid.ToString()));
+                Assert.That(columns1.Skip(4).First().Data.GetValue(0)?.ToString(), Is.EqualTo(null));
+                Assert.That(columns2.Skip(4).First().Data.GetValue(0)?.ToString(), Is.EqualTo("Test"));
             }
         }
     }

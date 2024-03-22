@@ -33,6 +33,7 @@ namespace Parquet.Tests
                 new DataField("ResultName", typeof(string)),
                 new DataField("Guid", typeof(string)),
                 new DataField("Parent", typeof(string)),
+                new DataField("StepId", typeof(string)),
             });
 
             Assert.That(actual, Is.EqualTo(expected));
@@ -55,6 +56,7 @@ namespace Parquet.Tests
                 new DataField("ResultName", typeof(string)),
                 new DataField("Guid", typeof(string)),
                 new DataField("Parent", typeof(string)),
+                new DataField("StepId", typeof(string)),
                 new DataField("Step/Integer", typeof(int?)),
                 new DataField("Step/Float", typeof(float?)),
                 new DataField("Step/Enum", typeof(string)),
@@ -82,6 +84,7 @@ namespace Parquet.Tests
                 new DataField("ResultName", typeof(string)),
                 new DataField("Guid", typeof(string)),
                 new DataField("Parent", typeof(string)),
+                new DataField("StepId", typeof(string)),
                 new DataField("Plan/Integer", typeof(int?)),
                 new DataField("Plan/Float", typeof(float?)),
                 new DataField("Plan/Enum", typeof(string)),
@@ -109,6 +112,7 @@ namespace Parquet.Tests
                 new DataField("ResultName", typeof(string)),
                 new DataField("Guid", typeof(string)),
                 new DataField("Parent", typeof(string)),
+                new DataField("StepId", typeof(string)),
                 new DataField("Result/Result1", typeof(int?)),
                 new DataField("Result/Result1", typeof(string)),
                 new DataField("Result/StringResults", typeof(string)),
@@ -140,6 +144,7 @@ namespace Parquet.Tests
                 new DataField("ResultName", typeof(string)),
                 new DataField("Guid", typeof(string)),
                 new DataField("Parent", typeof(string)),
+                new DataField("StepId", typeof(string)),
                 new DataField("Plan/Integer", typeof(int?)),
                 new DataField("Plan/Float", typeof(float?)),
                 new DataField("Plan/Enum", typeof(string)),
