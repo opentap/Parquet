@@ -14,6 +14,7 @@ namespace OpenTap.Plugins.Parquet
         ResultName,
         Guid,
         Parent,
+        StepId,
     }
 
     internal class SchemaBuilder
@@ -27,6 +28,7 @@ namespace OpenTap.Plugins.Parquet
                 CreateField(typeof(string), nameof(FieldType.ResultName)),
                 CreateField(typeof(string), nameof(FieldType.Guid)),
                 CreateField(typeof(string), nameof(FieldType.Parent)),
+                CreateField(typeof(string), nameof(FieldType.StepId)),
             };
         }
 
@@ -109,6 +111,10 @@ namespace OpenTap.Plugins.Parquet
                     if (field.Name == nameof(FieldType.Parent))
                     {
                         return FieldType.Parent;
+                    }
+                    if (field.Name == nameof(FieldType.StepId))
+                    {
+                        return FieldType.StepId;
                     }
                     throw new ArgumentException("Field was not created by the schema builder.", nameof(field));
             }
