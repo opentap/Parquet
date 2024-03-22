@@ -44,8 +44,8 @@ namespace OpenTap.Plugins.Parquet
             {
                 {"SchemaVersion", new Version(1, 0, 0, 0).ToString() },
                 {"Tool", generatingTool.FullName },
-                {"Time", DateTime.Now.ToString("G") },
-                {"ToolVersion", versionInfo.FileVersion }
+                {"ToolVersion", versionInfo.FileVersion },
+                {"Time", DateTime.Now.ToString("O") },
             };
         }
 
