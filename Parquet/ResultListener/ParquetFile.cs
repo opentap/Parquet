@@ -5,6 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -45,7 +46,7 @@ namespace OpenTap.Plugins.Parquet
                 {"SchemaVersion", new Version(1, 0, 0, 0).ToString() },
                 {"Tool", generatingTool.FullName },
                 {"ToolVersion", versionInfo.FileVersion },
-                {"Time", DateTime.Now.ToString("O") },
+                {"Time", DateTime.Now.ToString("O", CultureInfo.InvariantCulture) },
             };
         }
 
