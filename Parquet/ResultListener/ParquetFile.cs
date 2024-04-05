@@ -24,6 +24,7 @@ namespace OpenTap.Plugins.Parquet
         private readonly Stream _stream;
         private readonly ParquetWriter _writer;
         private int _rowCount = 0;
+        private readonly Dictionary<string, string> _customMetadata;
 
         public ParquetFileOptions Options { get; }
 
@@ -31,7 +32,7 @@ namespace OpenTap.Plugins.Parquet
 
         public Schema Schema { get; }
 
-        internal ParquetFile(Type generatingTool, Schema schema, Stream writeStream, ParquetFileOptions? options = null)
+        internal ParquetFile(Schema schema, Stream writeStream, ParquetFileOptions? options = null)
         {
             Schema = schema;
             _stream = writeStream;
@@ -39,20 +40,25 @@ namespace OpenTap.Plugins.Parquet
             _dataCache = schema.GetDataFields().ToDictionary(field => field, field => new ArrayList());
             Options = options ?? new ParquetFileOptions();
 
-            string assemblyLocation = generatingTool.Assembly.Location;
+            string assemblyLocation = typeof(ParquetFile).Assembly.Location;
             FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(assemblyLocation);
-            _writer.CustomMetadata = new Dictionary<string, string>()
+            _customMetadata = new Dictionary<string, string>()
             {
                 {"SchemaVersion", new Version(1, 0, 0, 0).ToString() },
-                {"Tool", generatingTool.FullName },
                 {"ToolVersion", versionInfo.FileVersion },
                 {"Time", DateTime.Now.ToString("O", CultureInfo.InvariantCulture) },
             };
+            _writer.CustomMetadata = _customMetadata;
         }
 
-        internal ParquetFile(Type generatingTool, Schema schema, string path, ParquetFileOptions? options = null) : this(generatingTool, schema, File.OpenWrite(path), options)
+        internal ParquetFile(Schema schema, string path, ParquetFileOptions? options = null) : this(schema, File.OpenWrite(path), options)
         {
             Path = path;
+        }
+
+        internal void AddMetadata(string key, string value)
+        {
+            _customMetadata.Add(key, value);
         }
 
         internal void AddRows(Dictionary<string, IConvertible>? planParameters,
