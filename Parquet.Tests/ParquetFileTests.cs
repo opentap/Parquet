@@ -5,6 +5,7 @@ using Parquet.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -130,6 +131,30 @@ namespace Parquet.Tests
                 Assert.That(columns1.Skip(4).First().Data.GetValue(0)?.ToString(), Is.EqualTo(null));
                 Assert.That(columns2.Skip(4).First().Data.GetValue(0)?.ToString(), Is.EqualTo("Test"));
             }
+        }
+
+        [Test]
+        public void FilesWillDisposeWithInvalidCacheTest()
+        {
+            var table = new ResultTable(
+                "ResultName2",
+                new ResultColumn[]
+                {
+                    new ResultColumn("Hello", new []{1}),
+                }
+            );
+
+            var builder = new SchemaBuilder();
+            builder.AddResults(table);
+            var ms = new MemoryStream();
+            var file = new ParquetFile(builder.ToSchema(), ms);
+
+            // Create an invalid cache in the parquet file by writing a string to an int collumn.
+            table.Columns[0] = new ResultColumn("Hello", new[] { "test" });
+            file.AddRows(null, null, table.GetResults(), null, null, null);
+
+            Assert.DoesNotThrow(() => file.Dispose());
+            Assert.Throws<ObjectDisposedException>(() => ms.Read(new byte[4], 0, 4));
         }
     }
 }
