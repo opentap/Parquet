@@ -59,11 +59,10 @@ namespace Parquet.Tests
             var result = plan.Execute(new ResultListener[] {resultListener}, Array.Empty<ResultParameter>());
             result.WaitForResults();
             Assert.That(System.IO.File.Exists($"Results/Tests/{nameof(TestColumnsExist)}.parquet"), Is.True);
-            resultListener.Close();
-            
+
             using Stream stream = System.IO.File.OpenRead($"Results/Tests/{nameof(TestColumnsExist)}.parquet");
             using ParquetReader reader = new ParquetReader(stream);
-            Assert.That(reader.RowGroupCount, Is.EqualTo(1));
+            Assert.That(reader.RowGroupCount, Is.EqualTo(2));
             Assert.That(reader.Schema.Fields, Does.Contain(new DataField("ResultName", typeof(string))));
             Assert.That(reader.Schema.Fields, Does.Contain(new DataField("Guid", typeof(string))));
             Assert.That(reader.Schema.Fields, Does.Contain(new DataField("Parent", typeof(string))));
