@@ -4,7 +4,7 @@ The parquet result listener allows listening to events from OpenTAP and writing 
 To use the result listener follow the steps below:
 1. Install the Parquet tappackage `tap package install Parquet`
 2. Create/open a test plan in your favorite IDE
-3. Add a parquet result listener, located under "Database/Parquet"
+3. Add a parquet result listener to you result listener settings. It can be found under the name "Database/Parquet"
 4. (Optional) configure the result listener so it outputs where/how you like.
 5. Run the test plan
 
