@@ -135,8 +135,11 @@ namespace OpenTap.Plugins.Parquet
 
         private ParquetFile GetOrCreateParquetFile(TestPlanRun planRun, SchemaBuilder builder, string path)
         {
-            if ((_filesBelongingToRun.TryGetValue(path, out TestPlanRun run) && run != planRun)
-                || !_filesBelongingToRun.ContainsKey(path))
+            if (!_filesBelongingToRun.ContainsKey(path) && File.Exists(path))
+            {
+                File.Delete(path);
+            }
+            if ((_filesBelongingToRun.TryGetValue(path, out TestPlanRun run) && run != planRun))
             {
                 File.Delete(path);
                 _parquetFiles.Remove(path);
