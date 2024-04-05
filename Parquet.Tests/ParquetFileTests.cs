@@ -23,7 +23,7 @@ namespace Parquet.Tests
             using var stream = new MemoryStream();
             var stepGuid = Guid.NewGuid();
             var parentGuid = Guid.NewGuid();
-            using (var file = new ParquetFile(GetType(), schema, stream, new ParquetFileOptions() { CloseStream = false }))
+            using (var file = new ParquetFile(schema, stream, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(null, null, null, "ResultName", stepGuid, parentGuid);
             }
@@ -49,7 +49,7 @@ namespace Parquet.Tests
             using var stream1 = new MemoryStream();
             var stepGuid1 = Guid.NewGuid();
             var parentGuid1 = Guid.NewGuid();
-            using (var file = new ParquetFile(GetType(), schema, stream1, new ParquetFileOptions() { CloseStream = false }))
+            using (var file = new ParquetFile(schema, stream1, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(null, null, null, "ResultName", stepGuid1, parentGuid1);
             }
@@ -57,7 +57,7 @@ namespace Parquet.Tests
             using var stream2 = new MemoryStream();
             var stepGuid2 = Guid.NewGuid();
             var parentGuid2 = Guid.NewGuid();
-            using (var file = new ParquetFile(GetType(), schema, stream2, new ParquetFileOptions() { CloseStream = false }))
+            using (var file = new ParquetFile(schema, stream2, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(stream1);
                 file.AddRows(null, null, null, "ResultName2", stepGuid2, parentGuid2);
@@ -88,7 +88,7 @@ namespace Parquet.Tests
             using var stream1 = new MemoryStream();
             var stepGuid1 = Guid.NewGuid();
             var parentGuid1 = Guid.NewGuid();
-            using (var file = new ParquetFile(GetType(), schema1, stream1, new ParquetFileOptions() { CloseStream = false }))
+            using (var file = new ParquetFile(schema1, stream1, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(null, null, null, "ResultName", stepGuid1, parentGuid1);
             }
@@ -105,7 +105,7 @@ namespace Parquet.Tests
             using var stream2 = new MemoryStream();
             var stepGuid2 = Guid.NewGuid();
             var parentGuid2 = Guid.NewGuid();
-            using (var file = new ParquetFile(GetType(), schema2, stream2, new ParquetFileOptions() { CloseStream = false }))
+            using (var file = new ParquetFile(schema2, stream2, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(stream1);
                 file.AddRows(null, null, table.GetResults(), "ResultName2", stepGuid2, parentGuid2);
@@ -138,15 +138,16 @@ namespace Parquet.Tests
             using var stream = new MemoryStream();
             var stepGuid = Guid.NewGuid();
             var parentGuid = Guid.NewGuid();
-            using (var file = new ParquetFile(GetType(), schema, stream, new ParquetFileOptions() { CloseStream = false }))
+            using (var file = new ParquetFile(schema, stream, new ParquetFileOptions() { CloseStream = false }))
             {
                 file.AddRows(null, null, null, "ResultName", stepGuid, parentGuid);
+                file.AddMetadata("Custom", "Metadata");
             }
 
             using (var reader = new ParquetReader(stream))
             {
                 Assert.That(reader.CustomMetadata["SchemaVersion"], Is.EqualTo("1.0.0.0"));
-                Assert.That(reader.CustomMetadata["Tool"], Is.EqualTo("Parquet.Tests.ParquetFileTests"));
+                Assert.That(reader.CustomMetadata["Custom"], Is.EqualTo("Metadata"));
                 Assert.That(DateTime.TryParse(reader.CustomMetadata["Time"], out _), Is.True);
                 Assert.That(reader.CustomMetadata["ToolVersion"], Is.EqualTo("1.0.0.0"));
             }

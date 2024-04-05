@@ -59,6 +59,7 @@ namespace OpenTap.Plugins.Parquet
         internal void AddMetadata(string key, string value)
         {
             _customMetadata.Add(key, value);
+            _writer.CustomMetadata = _customMetadata;
         }
 
         internal void AddRows(Dictionary<string, IConvertible>? planParameters,
