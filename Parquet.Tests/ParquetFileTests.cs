@@ -151,7 +151,7 @@ namespace Parquet.Tests
 
             // Create an invalid cache in the parquet file by writing a string to an int collumn.
             table.Columns[0] = new ResultColumn("Hello", new[] { "test" });
-            file.AddRows(null, null, table.GetResults(), null, null, null);
+            file.AddRows(null, null, table.GetResults(), null, null, null, null);
 
             Assert.DoesNotThrow(() => file.Dispose());
             Assert.Throws<ObjectDisposedException>(() => ms.Read(new byte[4], 0, 4));
