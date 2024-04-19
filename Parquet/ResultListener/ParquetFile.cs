@@ -45,7 +45,7 @@ namespace OpenTap.Plugins.Parquet
             _customMetadata = new Dictionary<string, string>()
             {
                 {"SchemaVersion", new Version(1, 0, 0, 0).ToString() },
-                {"ToolVersion", versionInfo.FileVersion },
+                {"OpenTapParquetVersion", versionInfo.FileVersion },
                 {"Time", DateTime.Now.ToString("O", CultureInfo.InvariantCulture) },
             };
             _writer.CustomMetadata = _customMetadata;
