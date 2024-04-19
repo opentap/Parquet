@@ -150,7 +150,7 @@ namespace Parquet.Tests
                 Assert.That(reader.CustomMetadata["SchemaVersion"], Is.EqualTo("1.0.0.0"));
                 Assert.That(reader.CustomMetadata["Custom"], Is.EqualTo("Metadata"));
                 Assert.That(DateTime.TryParse(reader.CustomMetadata["Time"], out _), Is.True);
-                Assert.That(reader.CustomMetadata["ToolVersion"], Is.EqualTo("1.0.0.0"));
+                Assert.That(reader.CustomMetadata["OpenTapParquetVersion"], Is.EqualTo("1.0.0.0"));
             }
         }
         
