@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Parquet.Tests
 {
-    internal class ParquetFileTests
+    internal class ParquetResultTests
     {
         // TODO: Consider adding tests for writing results, step parameters and plan parameters. For now these tests should cover the tasks most prone to failing.
 

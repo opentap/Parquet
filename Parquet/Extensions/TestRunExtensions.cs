@@ -12,7 +12,7 @@ namespace Parquet.Extensions
         internal static Dictionary<string, IConvertible> GetParameters(this TestRun run)
         {
             return run.Parameters
-                            .ToDictionary(p => SchemaBuilder.GetValidParquetName(p.Group, p.Name), p => p.Value);
+                            .ToDictionary(p => p.Group + "/" + p.Name, p => p.Value);
         }
     }
 }
