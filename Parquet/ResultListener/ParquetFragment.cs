@@ -2,13 +2,15 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Parquet.Data;
 using Parquet.Extensions;
 using ColumnKey = (string Name, System.Type Type);
-using ColumnData = (System.Collections.ArrayList Data, Parquet.Schema.DataField Field);
+using ColumnData = (object?[] Data, Parquet.Schema.DataField Field);
 
 namespace Parquet.ResultListener;
 
@@ -49,64 +51,69 @@ internal sealed class ParquetFragment : IDisposable
         Dictionary<string, IConvertible>? step,
         Dictionary<string, Array>? results)
     {
-        int count = results?.Values.Max(d => d.Length) ?? 1;
+        int resultCount = results?.Values.Max(d => d.Length) ?? 1;
         bool fitsInCache = true;
-
-        AddToCache("ResultName", typeof(string), Enumerable.Repeat(resultName, count).ToArray());
-        AddToCache("Guid", typeof(Guid), Enumerable.Repeat(guid, count).ToArray());
-        AddToCache("Parent", typeof(Guid), Enumerable.Repeat(parentId, count).ToArray());
-        AddToCache("StepId", typeof(Guid), Enumerable.Repeat(stepId, count).ToArray());
-
-        if (plan is not null)
-            foreach (var item in plan)
-            {
-                AddToCache("Plan/" + item.Key, item.Value.GetType(), Enumerable.Repeat(item.Value, count).ToArray());
-            }
-        if (step is not null)
-            foreach (var item in step)
-            {
-                AddToCache("Step/" + item.Key, item.Value.GetType(), Enumerable.Repeat(item.Value, count).ToArray());
-            }
-        if (results is not null)
-            foreach(var item in results)
-            {
-                AddToCache("Results/" + item.Key, item.Value.GetValue(0).GetType(), item.Value);
-            }
-
-        _cacheSize += count;
-        foreach (var item in _cache)
+        while (resultCount > 0)
         {
-            if (item.Value.Item1.Count < _cacheSize)
+            int count = Math.Min(1000 - _cacheSize, resultCount);
+
+            AddToCache("ResultName", typeof(string), Enumerable.Repeat<object?>(resultName, count).ToArray());
+            AddToCache("Guid", typeof(Guid), Enumerable.Repeat<object?>(guid, count).ToArray());
+            AddToCache("Parent", typeof(Guid), Enumerable.Repeat<object?>(parentId, count).ToArray());
+            AddToCache("StepId", typeof(Guid), Enumerable.Repeat<object?>(stepId, count).ToArray());
+            
+            if (plan is not null)
+                foreach (var item in plan)
+                {
+                    AddToCache("Plan/" + item.Key, item.Value.GetType(), Enumerable.Repeat<object?>(item.Value, count).ToArray());
+                }
+            if (step is not null)
+                foreach (var item in step)
+                {
+                    AddToCache("Step/" + item.Key, item.Value.GetType(), Enumerable.Repeat<object?>(item.Value, count).ToArray());
+                }
+            if (results is not null)
+                foreach(var item in results)
+                {
+                    AddToCache("Results/" + item.Key, item.Value.GetValue(0).GetType(), item.Value.Cast<object?>().ToArray());
+                }
+
+            _cacheSize += count;
+            resultCount -= count;
+            foreach (var item in _cache)
             {
-                AddToCache(item.Key, item.Value.Field.ClrType, Enumerable.Repeat<object?>(null, count).ToArray());
+                if (item.Value.Data.Length < _cacheSize)
+                {
+                    AddToCache(item.Key, item.Value.Field.ClrType, Enumerable.Repeat<object?>(null, count).ToArray());
+                }
+            }
+
+            if ((!fitsInCache && _writer is not null))
+            {
+                return false;
+            }
+            
+            if (_cacheSize >= 1000)
+            {
+                WriteCache();
             }
         }
-
-        if ((!fitsInCache && _writer is not null))
-        {
-            return false;
-        }
-        
-        if (_cacheSize >= 1000)
-        {
-            WriteCache();
-        }
-
         return true;
         
 
-        void AddToCache(string name, Type type, Array values)
+        void AddToCache(string name, Type type, object?[] values)
         {
             Type parquetType = GetParquetType(type);
             if (!_cache.TryGetValue(name, out ColumnData data))
             {
                 fitsInCache = false;
-                data = (new ArrayList(), new DataField(name, parquetType, true));
-                data.Data.AddRange(Enumerable.Repeat<object?>(null, _cacheSize).ToArray());
+                DataField field = new DataField(name, parquetType, true);
+                data = (new object?[1000], field);
                 _cache.Add(name, data);
                 _fields.Add(data.Field);
             }
-            data.Data.AddRange(values);
+
+            Array.Copy(values, 0, data.Data, _cacheSize, values.Length);
         }
     }
 
@@ -121,11 +128,18 @@ internal sealed class ParquetFragment : IDisposable
         ParquetRowGroupWriter rowGroupWriter = _writer.CreateRowGroup();
         foreach (var field in _schema.DataFields)
         {
-            DataColumn column;
-            ArrayList data = _cache[field.Name].Data;
-            column = new DataColumn(field, data.ConvertList(field.ClrNullableIfHasNullsType));
-            rowGroupWriter.WriteColumnAsync(column).Wait();
-            data.Clear();
+            ColumnData data = _cache[field.Name];
+            Array arr;
+            if (data.Field.ClrType == typeof(string))
+            {
+                arr = Array.ConvertAll(data.Data, o => o?.ToString());
+            }
+            else
+            {
+                arr = Array.CreateInstance(data.Field.ClrType.AsNullable(), 1000);
+                Array.Copy(data.Data, arr, data.Data.Length);
+            }
+            rowGroupWriter.WriteColumnAsync(new DataColumn(data.Field, arr)).Wait();
         }
         rowGroupWriter.Dispose();
 
