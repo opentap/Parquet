@@ -16,6 +16,7 @@ namespace Parquet.ResultListener;
 
 internal sealed class ParquetFragment : IDisposable
 {
+    private static readonly int RowGroupSize = 10_000;
     private readonly string _path;
     private readonly Stream _stream;
     private ParquetWriter? _writer;
@@ -55,7 +56,7 @@ internal sealed class ParquetFragment : IDisposable
         bool fitsInCache = true;
         while (resultCount > 0)
         {
-            int count = Math.Min(1000 - _cacheSize, resultCount);
+            int count = Math.Min(RowGroupSize - _cacheSize, resultCount);
 
             AddToCache("ResultName", typeof(string), Enumerable.Repeat<object?>(resultName, count).ToArray());
             AddToCache("Guid", typeof(Guid), Enumerable.Repeat<object?>(guid, count).ToArray());
@@ -93,7 +94,7 @@ internal sealed class ParquetFragment : IDisposable
                 return false;
             }
             
-            if (_cacheSize >= 1000)
+            if (_cacheSize >= RowGroupSize)
             {
                 WriteCache();
             }
@@ -108,7 +109,7 @@ internal sealed class ParquetFragment : IDisposable
             {
                 fitsInCache = false;
                 DataField field = new DataField(name, parquetType, true);
-                data = (new object?[1000], field);
+                data = (new object?[RowGroupSize], field);
                 _cache.Add(name, data);
                 _fields.Add(data.Field);
             }
@@ -136,7 +137,7 @@ internal sealed class ParquetFragment : IDisposable
             }
             else
             {
-                arr = Array.CreateInstance(data.Field.ClrType.AsNullable(), 1000);
+                arr = Array.CreateInstance(data.Field.ClrType.AsNullable(), RowGroupSize);
                 Array.Copy(data.Data, arr, data.Data.Length);
             }
             rowGroupWriter.WriteColumnAsync(new DataColumn(data.Field, arr)).Wait();
