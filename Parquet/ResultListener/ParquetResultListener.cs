@@ -8,14 +8,13 @@ using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Parquet.ResultListener;
 
 namespace OpenTap.Plugins.Parquet
 {
     [Display("Parquet", "Save results in a Parquet file", "Database")]
     public sealed class ParquetResultListener : ResultListener
     {
-        internal static TraceSource Log { get; } = OpenTap.Log.CreateSource("Parquet");
+        internal static new TraceSource Log { get; } = OpenTap.Log.CreateSource("Parquet");
 
         private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRuns = new Dictionary<Guid, TestPlanRun>();
         private readonly Dictionary<Guid, TestStepRun> _guidToStepRuns = new Dictionary<Guid, TestStepRun>();
@@ -55,12 +54,11 @@ namespace OpenTap.Plugins.Parquet
             base.OnTestPlanRunStart(planRun);
 
             _guidToPlanRuns[planRun.Id] = planRun;
+            GetFile(planRun).AddPlanRow(planRun);
         }
 
-        public override async void OnTestPlanRunCompleted(TestPlanRun planRun, Stream logStream)
+        public override void OnTestPlanRunCompleted(TestPlanRun planRun, Stream logStream)
         {
-            GetFile(planRun).AddPlanRow(planRun);
-            
             base.OnTestPlanRunCompleted(planRun, logStream);
             
             foreach (KeyValuePair<string,ParquetResult> parquetResult in _results)

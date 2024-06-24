@@ -9,10 +9,11 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Parquet.Data;
 using Parquet.Extensions;
+using Parquet;
 using ColumnKey = (string Name, System.Type Type);
 using ColumnData = (object?[] Data, Parquet.Schema.DataField Field);
 
-namespace Parquet.ResultListener;
+namespace OpenTap.Plugins.Parquet;
 
 internal sealed class ParquetFragment : IDisposable
 {
@@ -43,7 +44,7 @@ internal sealed class ParquetFragment : IDisposable
         _path = fragment._path + ".tmp";
         _stream = System.IO.File.Open(_path, FileMode.Create, FileAccess.Write);
         _cacheSize = fragment._cacheSize;
-        _fields = fragment._fields.ToList();
+        _fields = fragment._fields;
         _cache = fragment._cache;
     }
 
@@ -76,7 +77,7 @@ internal sealed class ParquetFragment : IDisposable
             if (results is not null)
                 foreach(var item in results)
                 {
-                    AddToCache("Results/" + item.Key, item.Value.GetValue(0).GetType(), item.Value.Cast<object?>().ToArray());
+                    AddToCache("Results/" + item.Key, item.Value.GetValue(0).GetType(), item.Value.Cast<object?>().Take(count).ToArray());
                 }
 
             _cacheSize += count;
@@ -89,7 +90,7 @@ internal sealed class ParquetFragment : IDisposable
                 }
             }
 
-            if ((!fitsInCache && _writer is not null))
+            if (!fitsInCache && _writer is not null)
             {
                 return false;
             }
@@ -125,31 +126,29 @@ internal sealed class ParquetFragment : IDisposable
             _schema = new ParquetSchema(_fields);
             _writer = ParquetWriter.CreateAsync(_schema, _stream).Result;
         }
-
         ParquetRowGroupWriter rowGroupWriter = _writer.CreateRowGroup();
-        foreach (var field in _schema.DataFields)
+        for (var i = 0; i < _schema.DataFields.Length; i++)
         {
-            ColumnData data = _cache[field.Name];
+            ColumnData data = _cache[_schema.DataFields[i].Name];
             Array arr;
             if (data.Field.ClrType == typeof(string))
             {
-                arr = Array.ConvertAll(data.Data, o => o?.ToString());
+                arr = data.Data.Take(_cacheSize).Select(o => o?.ToString()).ToArray();
             }
             else
             {
-                arr = Array.CreateInstance(data.Field.ClrType.AsNullable(), RowGroupSize);
-                Array.Copy(data.Data, arr, data.Data.Length);
+                arr = Array.CreateInstance(_schema.DataFields[i].ClrType.AsNullable(), _cacheSize);
+                Array.Copy(data.Data, arr, _cacheSize);
             }
-            rowGroupWriter.WriteColumnAsync(new DataColumn(data.Field, arr)).Wait();
+            DataColumn column = new DataColumn(_schema.DataFields[i], arr);
+            rowGroupWriter.WriteColumnAsync(column).Wait();
         }
-        rowGroupWriter.Dispose();
-
         _cacheSize = 0;
+        rowGroupWriter.Dispose();
     }
 
     public void Dispose()
     {
-        WriteCache();
         _writer?.Dispose();
         _stream.Flush();
         _stream.Dispose();

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Parquet.Extensions;
 
-namespace Parquet.ResultListener;
+namespace OpenTap.Plugins.Parquet;
 
 public sealed class ParquetResult : IDisposable
 {
@@ -36,6 +36,7 @@ public sealed class ParquetResult : IDisposable
                 parameters,
                 results))
         {
+            CurrentFragment.Dispose();
             _fragments.Add( new ParquetFragment(CurrentFragment));
         }
     }
@@ -56,6 +57,7 @@ public sealed class ParquetResult : IDisposable
                 parameters,
                 null))
         {
+            CurrentFragment.Dispose();
             _fragments.Add( new ParquetFragment(CurrentFragment));
         }
     }
@@ -76,16 +78,14 @@ public sealed class ParquetResult : IDisposable
                 null,
                 null))
         {
+            CurrentFragment.Dispose();
             _fragments.Add( new ParquetFragment(CurrentFragment));
         }
     }
 
     public void Dispose()
     {
-        for (int i = _fragments.Count - 1; i >= 0; i--)
-        {
-            ParquetFragment fragment = _fragments[i];
-            fragment.Dispose();
-        }
+        CurrentFragment.WriteCache();
+        CurrentFragment.Dispose();
     }
 }
