@@ -8,12 +8,14 @@ using Parquet.Extensions;
 using Parquet;
 using ColumnData = (System.Array Data, Parquet.Schema.DataField Field);
 using System.IO.Compression;
+using System.Diagnostics;
 
 namespace OpenTap.Plugins.Parquet;
 
 internal sealed class ParquetFragment : IDisposable
 {
     private readonly string _path;
+    private readonly int _nestedLevel;
     private readonly int _rowgroupSize;
     private readonly CompressionMethod _method;
     private readonly CompressionLevel _level;
@@ -27,6 +29,7 @@ internal sealed class ParquetFragment : IDisposable
     public ParquetFragment(string path, int rowgroupSize, CompressionMethod method, CompressionLevel level)
     {
         _path = path;
+        _nestedLevel = 0;
         _rowgroupSize = rowgroupSize;
         _method = method;
         _level = level;
@@ -35,18 +38,19 @@ internal sealed class ParquetFragment : IDisposable
         {
             Directory.CreateDirectory(dirPath);
         }
-        _stream = System.IO.File.Open(_path, FileMode.Create, FileAccess.Write);
+        _stream = System.IO.File.Open(_path + _nestedLevel + ".tmp", FileMode.Create, FileAccess.Write);
         _fields = new();
         _cache = new();
     }
 
     public ParquetFragment(ParquetFragment fragment)
     {
-        _path = fragment._path + ".tmp";
+        _path = fragment._path;
+        _nestedLevel = fragment._nestedLevel + 1;
         _rowgroupSize = fragment._rowgroupSize;
         _method = fragment._method;
         _level = fragment._level;
-        _stream = System.IO.File.Open(_path, FileMode.Create, FileAccess.Write);
+        _stream = System.IO.File.Open(_path + _nestedLevel + ".tmp", FileMode.Create, FileAccess.Write);
         _cacheSize = fragment._cacheSize;
         _fields = fragment._fields;
         _cache = fragment._cache;
@@ -60,38 +64,36 @@ internal sealed class ParquetFragment : IDisposable
         int resultCount = results?.Values.Max(d => d.Length) ?? 1;
         int startIndex = 0;
         bool fitsInCache = true;
-        while (resultCount > 0)
+        while (startIndex < resultCount)
         {
-            int count = Math.Min(_rowgroupSize - _cacheSize, resultCount);
+            int count = Math.Min(_rowgroupSize - _cacheSize, resultCount - startIndex);
 
-            fitsInCache |= AddToColumn("ResultName", typeof(string), resultName, count);
-            fitsInCache |= AddToColumn("Guid", typeof(Guid), guid, count);
-            fitsInCache |= AddToColumn("Parent", typeof(Guid), parentId, count);
-            fitsInCache |= AddToColumn("StepId", typeof(Guid), stepId, count);
+            fitsInCache &= AddToColumn("ResultName", typeof(string), resultName, count);
+            fitsInCache &= AddToColumn("Guid", typeof(Guid), guid, count);
+            fitsInCache &= AddToColumn("Parent", typeof(Guid), parentId, count);
+            fitsInCache &= AddToColumn("StepId", typeof(Guid), stepId, count);
             
             if (plan is not null)
                 foreach (var item in plan)
                 {
-                    fitsInCache |= AddToColumn("Plan/" + item.Key, item.Value.GetType(), item.Value, count);
+                    fitsInCache &= AddToColumn("Plan/" + item.Key, item.Value.GetType(), item.Value, count);
                 }
             if (step is not null)
                 foreach (var item in step)
                 {
-                    fitsInCache |= AddToColumn("Step/" + item.Key, item.Value.GetType(), item.Value, count);
+                    fitsInCache &= AddToColumn("Step/" + item.Key, item.Value.GetType(), item.Value, count);
                 }
             if (results is not null)
                 foreach(var item in results)
                 {
-                    fitsInCache |= AddToColumn("Results/" + item.Key, item.Value, startIndex, count);
+                    fitsInCache &= AddToColumn("Results/" + item.Key, item.Value, startIndex, count);
                 }
 
-            _cacheSize += count;
-            resultCount -= count;
             foreach (var item in _cache)
             {
                 if (item.Value.Data.Length < _cacheSize)
                 {
-                    fitsInCache |= AddToColumn(item.Key, item.Value.Field.ClrType, null, count);
+                    fitsInCache &= AddToColumn(item.Key, item.Value.Field.ClrType, null, count);
                 }
             }
 
@@ -100,10 +102,12 @@ internal sealed class ParquetFragment : IDisposable
                 return false;
             }
             
+            _cacheSize += count;
+            resultCount -= count;
+            startIndex += count;
             if (_cacheSize >= _rowgroupSize)
             {
                 WriteCache();
-                startIndex += count;
             }
         }
         return true;
@@ -178,6 +182,7 @@ internal sealed class ParquetFragment : IDisposable
         _writer?.Dispose();
         _stream.Flush();
         _stream.Dispose();
+        File.Move(_path + _nestedLevel + ".tmp", _path + _nestedLevel);
     }
     
     private static Type GetParquetType(Type type)
