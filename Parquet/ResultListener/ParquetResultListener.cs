@@ -1,13 +1,8 @@
 ﻿using Parquet;
-using Parquet.Data;
-using Parquet.Schema;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace OpenTap.Plugins.Parquet
 {
@@ -25,14 +20,17 @@ namespace OpenTap.Plugins.Parquet
         [FilePath(FilePathAttribute.BehaviorChoice.Save)]
         public MacroString FilePath { get; set; } = new MacroString() { Text = "Results/<TestPlanName>.<Date>/<ResultType>.parquet" };
 
-        [Display("Delete on publish", "If true the files will be removed when published as artifacts.")]
+        [Display("Delete on publish", "If true the files will be removed when published as artifacts.", "Advanced")]
         public bool DeleteOnPublish { get; set; } = false;
 
-        [Display("Method")]
-        public CompressionMethod CompressionMethod { get; set; }
+        [Display("Method", "The compression method to use when writing the file.", "Advanced")]
+        public CompressionMethod CompressionMethod { get; set; } = CompressionMethod.Snappy;
 
-        [Display("Level")]
-        public CompressionLevel CompressionLevel { get; set; }
+        [Display("Level", "The compression level to use when writing the file.", "Advanced")]
+        public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
+
+        [Display("Rowgroup size", "The amount of rows per rowgroup saved in a parquet file.", "Advanced")]
+        public int RowgroupSize { get; set; } = 10_000;
 
         public ParquetResultListener()
         {
@@ -110,7 +108,7 @@ namespace OpenTap.Plugins.Parquet
 
             if (!_results.TryGetValue(path, out ParquetResult? result))
             {
-                result = new ParquetResult(path);
+                result = new ParquetResult(path, RowgroupSize, CompressionMethod, CompressionLevel);
                 _results.Add(path, result);
             }
 

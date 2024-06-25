@@ -1,8 +1,8 @@
-﻿using OpenTap;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Parquet.Extensions;
+using Parquet;
+using System.IO.Compression;
 
 namespace OpenTap.Plugins.Parquet;
 
@@ -10,11 +10,11 @@ public sealed class ParquetResult : IDisposable
 {
     private readonly List<ParquetFragment> _fragments;
 
-    public ParquetResult(string path)
+    public ParquetResult(string path, int rowgroupSize = 10_000, CompressionMethod method = CompressionMethod.Snappy, CompressionLevel level = CompressionLevel.Optimal)
     {
         _fragments = new List<ParquetFragment>()
         {
-            new ParquetFragment(path),
+            new ParquetFragment(path, rowgroupSize, method, level),
         };
     }
 

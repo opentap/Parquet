@@ -1,24 +1,22 @@
 ﻿using Parquet.Schema;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Parquet.Data;
 using Parquet.Extensions;
 using Parquet;
-using ColumnKey = (string Name, System.Type Type);
-using ColumnData = (object?[] Data, Parquet.Schema.DataField Field);
+using ColumnData = (System.Array Data, Parquet.Schema.DataField Field);
+using System.IO.Compression;
 
 namespace OpenTap.Plugins.Parquet;
 
 internal sealed class ParquetFragment : IDisposable
 {
-    private static readonly int RowGroupSize = 10_000;
     private readonly string _path;
+    private readonly int _rowgroupSize;
+    private readonly CompressionMethod _method;
+    private readonly CompressionLevel _level;
     private readonly Stream _stream;
     private ParquetWriter? _writer;
     private ParquetSchema? _schema;
@@ -26,9 +24,12 @@ internal sealed class ParquetFragment : IDisposable
     private readonly List<DataField> _fields;
     private readonly Dictionary<string, ColumnData> _cache;
 
-    public ParquetFragment(string path)
+    public ParquetFragment(string path, int rowgroupSize, CompressionMethod method, CompressionLevel level)
     {
         _path = path;
+        _rowgroupSize = rowgroupSize;
+        _method = method;
+        _level = level;
         string? dirPath = Path.GetDirectoryName(path);
         if (!string.IsNullOrWhiteSpace(dirPath) && !Directory.Exists(dirPath))
         {
@@ -42,6 +43,9 @@ internal sealed class ParquetFragment : IDisposable
     public ParquetFragment(ParquetFragment fragment)
     {
         _path = fragment._path + ".tmp";
+        _rowgroupSize = fragment._rowgroupSize;
+        _method = fragment._method;
+        _level = fragment._level;
         _stream = System.IO.File.Open(_path, FileMode.Create, FileAccess.Write);
         _cacheSize = fragment._cacheSize;
         _fields = fragment._fields;
@@ -54,30 +58,31 @@ internal sealed class ParquetFragment : IDisposable
         Dictionary<string, Array>? results)
     {
         int resultCount = results?.Values.Max(d => d.Length) ?? 1;
+        int startIndex = 0;
         bool fitsInCache = true;
         while (resultCount > 0)
         {
-            int count = Math.Min(RowGroupSize - _cacheSize, resultCount);
+            int count = Math.Min(_rowgroupSize - _cacheSize, resultCount);
 
-            AddToCache("ResultName", typeof(string), Enumerable.Repeat<object?>(resultName, count).ToArray());
-            AddToCache("Guid", typeof(Guid), Enumerable.Repeat<object?>(guid, count).ToArray());
-            AddToCache("Parent", typeof(Guid), Enumerable.Repeat<object?>(parentId, count).ToArray());
-            AddToCache("StepId", typeof(Guid), Enumerable.Repeat<object?>(stepId, count).ToArray());
+            fitsInCache |= AddToColumn("ResultName", typeof(string), resultName, count);
+            fitsInCache |= AddToColumn("Guid", typeof(Guid), guid, count);
+            fitsInCache |= AddToColumn("Parent", typeof(Guid), parentId, count);
+            fitsInCache |= AddToColumn("StepId", typeof(Guid), stepId, count);
             
             if (plan is not null)
                 foreach (var item in plan)
                 {
-                    AddToCache("Plan/" + item.Key, item.Value.GetType(), Enumerable.Repeat<object?>(item.Value, count).ToArray());
+                    fitsInCache |= AddToColumn("Plan/" + item.Key, item.Value.GetType(), item.Value, count);
                 }
             if (step is not null)
                 foreach (var item in step)
                 {
-                    AddToCache("Step/" + item.Key, item.Value.GetType(), Enumerable.Repeat<object?>(item.Value, count).ToArray());
+                    fitsInCache |= AddToColumn("Step/" + item.Key, item.Value.GetType(), item.Value, count);
                 }
             if (results is not null)
                 foreach(var item in results)
                 {
-                    AddToCache("Results/" + item.Key, item.Value.GetValue(0).GetType(), item.Value.Cast<object?>().Take(count).ToArray());
+                    fitsInCache |= AddToColumn("Results/" + item.Key, item.Value, startIndex, count);
                 }
 
             _cacheSize += count;
@@ -86,7 +91,7 @@ internal sealed class ParquetFragment : IDisposable
             {
                 if (item.Value.Data.Length < _cacheSize)
                 {
-                    AddToCache(item.Key, item.Value.Field.ClrType, Enumerable.Repeat<object?>(null, count).ToArray());
+                    fitsInCache |= AddToColumn(item.Key, item.Value.Field.ClrType, null, count);
                 }
             }
 
@@ -95,28 +100,52 @@ internal sealed class ParquetFragment : IDisposable
                 return false;
             }
             
-            if (_cacheSize >= RowGroupSize)
+            if (_cacheSize >= _rowgroupSize)
             {
                 WriteCache();
+                startIndex += count;
             }
         }
         return true;
-        
+    }
 
-        void AddToCache(string name, Type type, object?[] values)
-        {
-            Type parquetType = GetParquetType(type);
-            if (!_cache.TryGetValue(name, out ColumnData data))
-            {
-                fitsInCache = false;
-                DataField field = new DataField(name, parquetType, true);
-                data = (new object?[RowGroupSize], field);
-                _cache.Add(name, data);
-                _fields.Add(data.Field);
-            }
+    private bool AddToColumn(string name, Array values, int startIndex, int count){
+        Type type = values.GetType().GetElementType();
+        bool fitsInCache = GetOrCreateColumn(name, type, out ColumnData data, out Type columnType);
 
-            Array.Copy(values, 0, data.Data, _cacheSize, values.Length);
+        Array.Copy(values.Cast<object?>().Skip(startIndex).ToArray(), startIndex, data.Data, _cacheSize, count);
+
+        return fitsInCache;
+    }
+
+    private bool AddToColumn(string name, Type type, object? value, int count){
+        bool fitsInCache = GetOrCreateColumn(name, type, out ColumnData data, out Type columnType);
+
+        if (columnType == typeof(string) && type != typeof(string)){
+            value = value?.ToString();
         }
+
+        for (int i = 0; i < count; i++)
+        {
+            data.Data.SetValue(value, _cacheSize + i);
+        }
+
+        return fitsInCache;
+    }
+
+    private bool GetOrCreateColumn(string name, Type type, out ColumnData data, out Type parquetType)
+    {
+        parquetType = GetParquetType(type);
+        if (!_cache.TryGetValue(name, out data))
+        {
+            DataField field = new DataField(name, parquetType, true);
+            data = (Array.CreateInstance(parquetType.AsNullable(), _rowgroupSize), field);
+            _cache.Add(name, data);
+            _fields.Add(data.Field);
+            return false;
+        }
+
+        return true;
     }
 
     public void WriteCache()
@@ -125,19 +154,16 @@ internal sealed class ParquetFragment : IDisposable
         {
             _schema = new ParquetSchema(_fields);
             _writer = ParquetWriter.CreateAsync(_schema, _stream).Result;
+            _writer.CompressionMethod = _method;
+            _writer.CompressionLevel = _level;
         }
         ParquetRowGroupWriter rowGroupWriter = _writer.CreateRowGroup();
         for (var i = 0; i < _schema.DataFields.Length; i++)
         {
             ColumnData data = _cache[_schema.DataFields[i].Name];
-            Array arr;
-            if (data.Field.ClrType == typeof(string))
-            {
-                arr = data.Data.Take(_cacheSize).Select(o => o?.ToString()).ToArray();
-            }
-            else
-            {
-                arr = Array.CreateInstance(_schema.DataFields[i].ClrType.AsNullable(), _cacheSize);
+            Array arr = data.Data;
+            if (_cacheSize != _rowgroupSize){
+                arr = Array.CreateInstance(_schema.DataFields[i].ClrNullableIfHasNullsType, _cacheSize);
                 Array.Copy(data.Data, arr, _cacheSize);
             }
             DataColumn column = new DataColumn(_schema.DataFields[i], arr);
