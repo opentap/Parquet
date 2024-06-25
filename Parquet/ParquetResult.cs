@@ -3,22 +3,30 @@ using System.Collections.Generic;
 using Parquet.Extensions;
 using Parquet;
 using System.IO.Compression;
+using System.Linq;
 
 namespace OpenTap.Plugins.Parquet;
 
 public sealed class ParquetResult : IDisposable
 {
-    private readonly List<ParquetFragment> _fragments;
+    private readonly List<ParquetFragment> _oldFragments;
+    private ParquetFragment _currentFragment;
 
     public ParquetResult(string path, int rowgroupSize = 10_000, CompressionMethod method = CompressionMethod.Snappy, CompressionLevel level = CompressionLevel.Optimal)
     {
-        _fragments = new List<ParquetFragment>()
-        {
-            new(path, rowgroupSize, method, level),
-        };
+        _oldFragments = [];
+        _currentFragment = new(path, rowgroupSize, method, level);
     }
 
-    private ParquetFragment CurrentFragment => _fragments[_fragments.Count - 1];
+
+    private ParquetFragment CurrentFragment {
+        get => _currentFragment;
+        set
+        {
+            _oldFragments.Add(_currentFragment);
+            _currentFragment = value;
+        }
+    }
 
     public void AddResultRow(TestStepRun run, ResultTable table)
     {
@@ -37,7 +45,7 @@ public sealed class ParquetResult : IDisposable
                 results))
         {
             CurrentFragment.Dispose();
-            _fragments.Add( new ParquetFragment(CurrentFragment));
+            CurrentFragment = new ParquetFragment(CurrentFragment);
         }
     }
     
@@ -58,7 +66,7 @@ public sealed class ParquetResult : IDisposable
                 null))
         {
             CurrentFragment.Dispose();
-            _fragments.Add( new ParquetFragment(CurrentFragment));
+            CurrentFragment = new ParquetFragment(CurrentFragment);
         }
     }
 
@@ -79,13 +87,13 @@ public sealed class ParquetResult : IDisposable
                 null))
         {
             CurrentFragment.Dispose();
-            _fragments.Add( new ParquetFragment(CurrentFragment));
+            CurrentFragment = new ParquetFragment(CurrentFragment);
         }
     }
 
     public void Dispose()
     {
         CurrentFragment.WriteCache();
-        CurrentFragment.Dispose();
+        CurrentFragment.Dispose(_oldFragments);
     }
 }

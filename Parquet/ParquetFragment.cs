@@ -173,7 +173,7 @@ internal sealed class ParquetFragment : IDisposable
             _writer.CompressionMethod = _method;
             _writer.CompressionLevel = _level;
         }
-        ParquetRowGroupWriter rowGroupWriter = _writer.CreateRowGroup();
+        using ParquetRowGroupWriter rowGroupWriter = _writer.CreateRowGroup();
         for (var i = 0; i < _schema.DataFields.Length; i++)
         {
             ColumnData data = _cache[_schema.DataFields[i].Name];
@@ -187,7 +187,62 @@ internal sealed class ParquetFragment : IDisposable
             rowGroupWriter.WriteColumnAsync(column).Wait();
         }
         _cacheSize = 0;
-        rowGroupWriter.Dispose();
+    }
+
+    public void Dispose(IEnumerable<ParquetFragment> fragments)
+    {
+        if (_writer is null || _schema is null)
+        {
+            _schema = new ParquetSchema(_fields);
+            _writer = ParquetWriter.CreateAsync(_schema, _stream).Result;
+            _writer.CompressionMethod = _method;
+            _writer.CompressionLevel = _level;
+        }
+        Dictionary<string, DataColumn> emptyColumns = new();
+        foreach (ParquetFragment fragment in fragments)
+        {
+            if (_path != fragment._path || _fields != fragment._fields || _cache != fragment._cache)
+            {
+                throw new InvalidOperationException(
+                    "Cannot merge fragments since they dont originate from the same base fragment.");
+            }
+
+            ParquetReader reader = ParquetReader.CreateAsync(fragment._path + fragment._nestedLevel + ".tmp").Result;
+            for (int i = 0; i < reader.RowGroupCount; i++)
+            {
+                Dictionary<string, DataColumn> columns =
+                    reader.ReadEntireRowGroupAsync(i).Result.ToDictionary(c => c.Field.Name, c => c);
+                using ParquetRowGroupReader groupReader = reader.OpenRowGroupReader(i);
+
+                using ParquetRowGroupWriter writer = _writer!.CreateRowGroup();
+                foreach (DataField field in _fields)
+                {
+                    if (!columns.TryGetValue(field.Name, out DataColumn? column))
+                    {
+                        if (!emptyColumns.TryGetValue(field.Name, out column))
+                        {
+                            if (groupReader.RowCount == _rowgroupSize)
+                            {
+                                column = new DataColumn(field,
+                                    Array.CreateInstance(field.ClrNullableIfHasNullsType, _rowgroupSize));
+                                emptyColumns.Add(field.Name, column);
+                            }
+                            else
+                            {
+                                column = new DataColumn(field,
+                                    Array.CreateInstance(field.ClrNullableIfHasNullsType, groupReader.RowCount));
+                            }
+                        }
+                    }
+
+                    writer.WriteColumnAsync(column).Wait();
+                }
+            }
+            reader.Dispose();
+            File.Delete(fragment._path + fragment._nestedLevel + ".tmp");
+        }
+        Dispose();
+        File.Move(_path + _nestedLevel + ".tmp", _path);
     }
 
     public void Dispose()
@@ -195,7 +250,6 @@ internal sealed class ParquetFragment : IDisposable
         _writer?.Dispose();
         _stream.Flush();
         _stream.Dispose();
-        File.Move(_path + _nestedLevel + ".tmp", _path + _nestedLevel + ".parquet");
     }
     
     private static Type GetParquetType(Type type)
