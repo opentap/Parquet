@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <TargetName>OpenTap.Plugins.Parquet</TargetName>
+    <RootNamespace>OpenTap.Plugins.Parquet</RootNamespace>
     <DebugWith>Editor CE</DebugWith>
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>

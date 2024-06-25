@@ -9,16 +9,16 @@ namespace OpenTap.Plugins.Parquet
     [Display("Parquet", "Save results in a Parquet file", "Database")]
     public sealed class ParquetResultListener : ResultListener
     {
-        internal static new TraceSource Log { get; } = OpenTap.Log.CreateSource("Parquet");
+        internal new static TraceSource Log { get; } = OpenTap.Log.CreateSource("Parquet");
 
-        private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRuns = new Dictionary<Guid, TestPlanRun>();
-        private readonly Dictionary<Guid, TestStepRun> _guidToStepRuns = new Dictionary<Guid, TestStepRun>();
-        private readonly HashSet<Guid> _hasWrittenParameters = new HashSet<Guid>();
-        private readonly Dictionary<string, ParquetResult> _results = new Dictionary<string, ParquetResult>();
+        private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRuns = new();
+        private readonly Dictionary<Guid, TestStepRun> _guidToStepRuns = new();
+        private readonly HashSet<Guid> _hasWrittenParameters = [];
+        private readonly Dictionary<string, ParquetResult> _results = new();
 
         [Display("File path", "The file path of the parquet file(s). Can use <ResultType> to have one file per result type.")]
         [FilePath(FilePathAttribute.BehaviorChoice.Save)]
-        public MacroString FilePath { get; set; } = new MacroString() { Text = "Results/<TestPlanName>.<Date>/<ResultType>.parquet" };
+        public MacroString FilePath { get; set; } = new() { Text = "Results/<TestPlanName>.<Date>/<ResultType>.parquet" };
 
         [Display("Delete on publish", "If true the files will be removed when published as artifacts.", "Advanced")]
         public bool DeleteOnPublish { get; set; } = false;
@@ -35,16 +35,6 @@ namespace OpenTap.Plugins.Parquet
         public ParquetResultListener()
         {
             Name = "Parquet";
-        }
-
-        public override void Open()
-        {
-            base.Open();
-        }
-
-        public override void Close()
-        {
-            base.Close();
         }
 
         public override void OnTestPlanRunStart(TestPlanRun planRun)

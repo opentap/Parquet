@@ -14,7 +14,7 @@ public sealed class ParquetResult : IDisposable
     {
         _fragments = new List<ParquetFragment>()
         {
-            new ParquetFragment(path, rowgroupSize, method, level),
+            new(path, rowgroupSize, method, level),
         };
     }
 

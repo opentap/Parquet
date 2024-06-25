@@ -8,7 +8,7 @@ namespace Parquet.Extensions
     {
         internal static HashSet<T> ToHashSet<T>(this IEnumerable<T> enumerable)
         {
-            HashSet<T> hashSet = new HashSet<T>();
+            HashSet<T> hashSet = new();
             foreach (T item in enumerable)
             {
                 hashSet.Add(item);

@@ -7,7 +7,6 @@ using Parquet.Data;
 using Parquet.Extensions;
 using Parquet;
 using System.IO.Compression;
-using System.Diagnostics;
 
 namespace OpenTap.Plugins.Parquet;
 
@@ -51,7 +50,7 @@ internal sealed class ParquetFragment : IDisposable
         {
             Directory.CreateDirectory(dirPath);
         }
-        _stream = System.IO.File.Open(_path + _nestedLevel + ".tmp", FileMode.Create, FileAccess.Write);
+        _stream = File.Open(_path + _nestedLevel + ".tmp", FileMode.Create, FileAccess.Write);
         _fields = new();
         _cache = new();
     }
@@ -63,7 +62,7 @@ internal sealed class ParquetFragment : IDisposable
         _rowgroupSize = fragment._rowgroupSize;
         _method = fragment._method;
         _level = fragment._level;
-        _stream = System.IO.File.Open(_path + _nestedLevel + ".tmp", FileMode.Create, FileAccess.Write);
+        _stream = File.Open(_path + _nestedLevel + ".tmp", FileMode.Create, FileAccess.Write);
         _cacheSize = fragment._cacheSize;
         _fields = fragment._fields;
         _cache = fragment._cache;
