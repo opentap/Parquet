@@ -6,7 +6,6 @@ using System.Linq;
 using Parquet.Data;
 using Parquet.Extensions;
 using Parquet;
-using ColumnData = (System.Array Data, Parquet.Schema.DataField Field);
 using System.IO.Compression;
 using System.Diagnostics;
 
@@ -14,6 +13,20 @@ namespace OpenTap.Plugins.Parquet;
 
 internal sealed class ParquetFragment : IDisposable
 {
+    private record ColumnData
+    {
+        public Array Data { get; }
+        public int Count { get; set; } = 0;
+        public DataField Field { get; }
+
+        public ColumnData(string name, Type type, int size, int existingCacheSize)
+        {
+            Data = Array.CreateInstance(type.AsNullable(), size);
+            Field = new DataField(name, type, true);
+            Count = existingCacheSize;
+        }
+    }
+    
     private readonly string _path;
     private readonly int _nestedLevel;
     private readonly int _rowgroupSize;
@@ -63,9 +76,9 @@ internal sealed class ParquetFragment : IDisposable
     {
         int resultCount = results?.Values.Max(d => d.Length) ?? 1;
         int startIndex = 0;
-        bool fitsInCache = true;
         while (startIndex < resultCount)
         {
+            bool fitsInCache = true;
             int count = Math.Min(_rowgroupSize - _cacheSize, resultCount - startIndex);
 
             fitsInCache &= AddToColumn("ResultName", typeof(string), resultName, count);
@@ -91,20 +104,19 @@ internal sealed class ParquetFragment : IDisposable
 
             foreach (var item in _cache)
             {
-                if (item.Value.Data.Length < _cacheSize)
+                if (item.Value.Count < _cacheSize + count)
                 {
                     fitsInCache &= AddToColumn(item.Key, item.Value.Field.ClrType, null, count);
                 }
             }
-
+            
+            _cacheSize += count;
+            startIndex += count;
             if (!fitsInCache && _writer is not null)
             {
                 return false;
             }
             
-            _cacheSize += count;
-            resultCount -= count;
-            startIndex += count;
             if (_cacheSize >= _rowgroupSize)
             {
                 WriteCache();
@@ -117,7 +129,8 @@ internal sealed class ParquetFragment : IDisposable
         Type type = values.GetType().GetElementType();
         bool fitsInCache = GetOrCreateColumn(name, type, out ColumnData data, out Type columnType);
 
-        Array.Copy(values.Cast<object?>().Skip(startIndex).ToArray(), startIndex, data.Data, _cacheSize, count);
+        Array.Copy(values.Cast<object?>().Skip(startIndex).Take(count).ToArray(), 0, data.Data, _cacheSize, count);
+        data.Count += count;
 
         return fitsInCache;
     }
@@ -133,6 +146,7 @@ internal sealed class ParquetFragment : IDisposable
         {
             data.Data.SetValue(value, _cacheSize + i);
         }
+        data.Count += count;
 
         return fitsInCache;
     }
@@ -142,8 +156,7 @@ internal sealed class ParquetFragment : IDisposable
         parquetType = GetParquetType(type);
         if (!_cache.TryGetValue(name, out data))
         {
-            DataField field = new DataField(name, parquetType, true);
-            data = (Array.CreateInstance(parquetType.AsNullable(), _rowgroupSize), field);
+            data = new ColumnData(name, parquetType, _rowgroupSize, _cacheSize);
             _cache.Add(name, data);
             _fields.Add(data.Field);
             return false;
@@ -165,6 +178,7 @@ internal sealed class ParquetFragment : IDisposable
         for (var i = 0; i < _schema.DataFields.Length; i++)
         {
             ColumnData data = _cache[_schema.DataFields[i].Name];
+            data.Count = 0;
             Array arr = data.Data;
             if (_cacheSize != _rowgroupSize){
                 arr = Array.CreateInstance(_schema.DataFields[i].ClrNullableIfHasNullsType, _cacheSize);
@@ -182,7 +196,7 @@ internal sealed class ParquetFragment : IDisposable
         _writer?.Dispose();
         _stream.Flush();
         _stream.Dispose();
-        File.Move(_path + _nestedLevel + ".tmp", _path + _nestedLevel);
+        File.Move(_path + _nestedLevel + ".tmp", _path + _nestedLevel + ".parquet");
     }
     
     private static Type GetParquetType(Type type)
