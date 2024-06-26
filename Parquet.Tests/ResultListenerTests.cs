@@ -12,14 +12,14 @@ namespace Parquet.Tests
             TestPlan plan = new TestPlan();
             ParquetResultListener resultListener = new ParquetResultListener();
             resultListener.DeleteOnPublish = false;
-            resultListener.FilePath.Text = $"Results/Tests/{nameof(OutputParquetFilesTest)}.parquet";
+            resultListener.FilePath.Text = $"Tests/{nameof(ResultListenerTests)}/{nameof(OutputParquetFilesTest)}.parquet";
             var result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
             result.WaitForResults();
             var artifacts = result.Artifacts.ToList();
             Assert.That(artifacts.Count, Is.EqualTo(1));
             Assert.That(artifacts[0], Is.EqualTo($"{nameof(OutputParquetFilesTest)}.parquet"));
 
-            Assert.That(System.IO.File.Exists($"Results/Tests/{nameof(OutputParquetFilesTest)}.parquet"), Is.True);
+            Assert.That(System.IO.File.Exists($"Tests/{nameof(ResultListenerTests)}/{nameof(OutputParquetFilesTest)}.parquet"), Is.True);
         }
 
         [Test]
@@ -28,16 +28,16 @@ namespace Parquet.Tests
             TestPlan plan = new TestPlan();
             ParquetResultListener resultListener = new ParquetResultListener();
             resultListener.DeleteOnPublish = false;
-            resultListener.FilePath.Text = $"Results/Tests/{nameof(DoesntMergeWithOldFiles)}.parquet";
+            resultListener.FilePath.Text = $"Tests/{nameof(ResultListenerTests)}/{nameof(DoesntMergeWithOldFiles)}.parquet";
             var result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
             result.WaitForResults();
-            Assert.That(System.IO.File.Exists($"Results/Tests/{nameof(DoesntMergeWithOldFiles)}.parquet"), Is.True);
+            Assert.That(System.IO.File.Exists($"Tests/{nameof(ResultListenerTests)}/{nameof(DoesntMergeWithOldFiles)}.parquet"), Is.True);
 
             result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
             result.WaitForResults();
-            Assert.That(System.IO.File.Exists($"Results/Tests/{nameof(DoesntMergeWithOldFiles)}.parquet"), Is.True);
+            Assert.That(System.IO.File.Exists($"Tests/{nameof(ResultListenerTests)}/{nameof(DoesntMergeWithOldFiles)}.parquet"), Is.True);
 
-            using Stream stream = System.IO.File.OpenRead($"Results/Tests/{nameof(DoesntMergeWithOldFiles)}.parquet");
+            using Stream stream = System.IO.File.OpenRead($"Tests/{nameof(ResultListenerTests)}/{nameof(DoesntMergeWithOldFiles)}.parquet");
             using ParquetReader reader = await ParquetReader.CreateAsync(stream);
             Assert.That(reader.RowGroupCount, Is.EqualTo(1));
             var rowgroup = await reader.ReadEntireRowGroupAsync(0);

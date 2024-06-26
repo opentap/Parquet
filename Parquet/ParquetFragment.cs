@@ -186,8 +186,13 @@ internal sealed class ParquetFragment : IDisposable
         _cacheSize = 0;
     }
 
-    public void Dispose(IEnumerable<ParquetFragment> fragments)
+    public void Dispose(IEnumerable<ParquetFragment>? fragments)
     {
+        if (fragments == null)
+        {
+            fragments = new List<ParquetFragment>();
+        }
+        
         if (_writer is null || _schema is null)
         {
             _schema = new ParquetSchema(_fields);
