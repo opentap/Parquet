@@ -64,9 +64,14 @@ namespace OpenTap.Plugins.Parquet
         {
             base.OnTestPlanRunCompleted(planRun, logStream);
             
-            foreach (KeyValuePair<string,ParquetResult> parquetResult in _results)
+            foreach (ParquetResult parquetResult in _results.Values)
             {
-                parquetResult.Value.Dispose();
+                parquetResult.Dispose();
+                planRun.PublishArtifactAsync(parquetResult.Path);
+                if (DeleteOnPublish)
+                {
+                    File.Delete(parquetResult.Path);
+                }
             }
             _results.Clear();
 

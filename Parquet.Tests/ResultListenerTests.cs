@@ -23,7 +23,7 @@ namespace Parquet.Tests
         }
 
         [Test]
-        public void DoesntMergeWithOldFiles()
+        public async Task DoesntMergeWithOldFiles()
         {
             TestPlan plan = new TestPlan();
             ParquetResultListener resultListener = new ParquetResultListener();
@@ -38,10 +38,10 @@ namespace Parquet.Tests
             Assert.That(System.IO.File.Exists($"Results/Tests/{nameof(DoesntMergeWithOldFiles)}.parquet"), Is.True);
 
             using Stream stream = System.IO.File.OpenRead($"Results/Tests/{nameof(DoesntMergeWithOldFiles)}.parquet");
-            using ParquetReader reader = new ParquetReader(stream);
+            using ParquetReader reader = await ParquetReader.CreateAsync(stream);
             Assert.That(reader.RowGroupCount, Is.EqualTo(1));
-            var rowgroup = reader.ReadEntireRowGroup(0);
-            Assert.That(rowgroup.Any(c => c.Data.GetValue(0)?.Equals(result.Id.ToString()) ?? false), Is.True);
+            var rowgroup = await reader.ReadEntireRowGroupAsync(0);
+            Assert.That(rowgroup.Any(c => c.Data.GetValue(0)?.Equals(result.Id) ?? false), Is.True);
         }
     }
 }

@@ -9,6 +9,10 @@ namespace OpenTap.Plugins.Parquet;
 
 public sealed class ParquetResult : IDisposable
 {
+
+    private readonly List<ParquetFragment> _oldFragments;
+    private ParquetFragment _currentFragment;
+
     public sealed class Options
     {
         public int RowGroupSize { get; set; } = 10_000;
@@ -16,17 +20,16 @@ public sealed class ParquetResult : IDisposable
         public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
         public ParquetOptions ParquetOptions { get; set; } = new ParquetOptions();
     }
-    
-    private readonly List<ParquetFragment> _oldFragments;
-    private ParquetFragment _currentFragment;
 
     public ParquetResult(string path, Options? options = null)
     {
+        Path = path;
         _oldFragments = [];
         _currentFragment = new(path, options ?? new Options(){ParquetOptions = { UseDeltaBinaryPackedEncoding = false }});
     }
-
-
+    
+    public string Path { get; }
+    
     private ParquetFragment CurrentFragment {
         get => _currentFragment;
         set

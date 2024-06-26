@@ -21,4 +21,10 @@
     <ProjectReference Include="..\Parquet\Parquet.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="OpenTap.Plugins.BasicSteps">
+      <HintPath>..\Parquet\bin\Debug\netstandard2.0\Packages\OpenTAP\OpenTap.Plugins.BasicSteps.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

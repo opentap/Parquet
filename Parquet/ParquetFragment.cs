@@ -239,6 +239,11 @@ internal sealed class ParquetFragment : IDisposable
             File.Delete(fragment._path + fragment._nestedLevel + ".tmp");
         }
         Dispose();
+        // TODO: This could cause error in cases where the old file is open in another program.
+        if (File.Exists(_path))
+        {
+            File.Delete(_path);
+        }
         File.Move(_path + _nestedLevel + ".tmp", _path);
     }
 
