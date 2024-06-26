@@ -27,10 +27,9 @@ internal sealed class ParquetFragment : IDisposable
     }
     
     private readonly string _path;
+    private readonly ParquetResult.Options _options;
     private readonly int _nestedLevel;
     private readonly int _rowgroupSize;
-    private readonly CompressionMethod _method;
-    private readonly CompressionLevel _level;
     private readonly Stream _stream;
     private ParquetWriter? _writer;
     private ParquetSchema? _schema;
@@ -38,13 +37,12 @@ internal sealed class ParquetFragment : IDisposable
     private readonly List<DataField> _fields;
     private readonly Dictionary<string, ColumnData> _cache;
 
-    public ParquetFragment(string path, int rowgroupSize, CompressionMethod method, CompressionLevel level)
+    public ParquetFragment(string path,  ParquetResult.Options options)
     {
         _path = path;
+        _options = options;
         _nestedLevel = 0;
-        _rowgroupSize = rowgroupSize;
-        _method = method;
-        _level = level;
+        _rowgroupSize = _options.RowGroupSize;
         string? dirPath = Path.GetDirectoryName(path);
         if (!string.IsNullOrWhiteSpace(dirPath) && !Directory.Exists(dirPath))
         {
@@ -60,8 +58,7 @@ internal sealed class ParquetFragment : IDisposable
         _path = fragment._path;
         _nestedLevel = fragment._nestedLevel + 1;
         _rowgroupSize = fragment._rowgroupSize;
-        _method = fragment._method;
-        _level = fragment._level;
+        _options = fragment._options;
         _stream = File.Open(_path + _nestedLevel + ".tmp", FileMode.Create, FileAccess.Write);
         _cacheSize = fragment._cacheSize;
         _fields = fragment._fields;
@@ -125,7 +122,7 @@ internal sealed class ParquetFragment : IDisposable
     }
 
     private bool AddToColumn(string name, Array values, int startIndex, int count){
-        Type type = values.GetType().GetElementType();
+        Type type = values.GetType().GetElementType()!;
         bool fitsInCache = GetOrCreateColumn(name, type, out ColumnData data, out Type columnType);
 
         Array.Copy(values.Cast<object?>().Skip(startIndex).Take(count).ToArray(), 0, data.Data, _cacheSize, count);
@@ -169,9 +166,9 @@ internal sealed class ParquetFragment : IDisposable
         if (_writer is null || _schema is null)
         {
             _schema = new ParquetSchema(_fields);
-            _writer = ParquetWriter.CreateAsync(_schema, _stream).Result;
-            _writer.CompressionMethod = _method;
-            _writer.CompressionLevel = _level;
+            _writer = ParquetWriter.CreateAsync(_schema, _stream, _options.ParquetOptions).Result;
+            _writer.CompressionMethod = _options.CompressionMethod;
+            _writer.CompressionLevel = _options.CompressionLevel;
         }
         using ParquetRowGroupWriter rowGroupWriter = _writer.CreateRowGroup();
         for (var i = 0; i < _schema.DataFields.Length; i++)
@@ -194,9 +191,9 @@ internal sealed class ParquetFragment : IDisposable
         if (_writer is null || _schema is null)
         {
             _schema = new ParquetSchema(_fields);
-            _writer = ParquetWriter.CreateAsync(_schema, _stream).Result;
-            _writer.CompressionMethod = _method;
-            _writer.CompressionLevel = _level;
+            _writer = ParquetWriter.CreateAsync(_schema, _stream, _options.ParquetOptions).Result;
+            _writer.CompressionMethod = _options.CompressionMethod;
+            _writer.CompressionLevel = _options.CompressionLevel;
         }
         Dictionary<string, DataColumn> emptyColumns = new();
         foreach (ParquetFragment fragment in fragments)

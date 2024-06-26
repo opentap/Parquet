@@ -16,22 +16,37 @@ namespace OpenTap.Plugins.Parquet
         private readonly HashSet<Guid> _hasWrittenParameters = [];
         private readonly Dictionary<string, ParquetResult> _results = new();
 
-        [Display("File path", "The file path of the parquet file(s). Can use <ResultType> to have one file per result type.")]
+        [Display("File path", "The file path of the parquet file(s). Can use <ResultType> to have one file per result type.", Order: 0)]
         [FilePath(FilePathAttribute.BehaviorChoice.Save)]
-        public MacroString FilePath { get; set; } = new() { Text = "Results/<TestPlanName>.<Date>/<ResultType>.parquet" };
+        public MacroString FilePath { get; set; } = new() { Text = "Results/<TestPlanName>.<Date>/<ResultType>.parquet"};
 
-        [Display("Delete on publish", "If true the files will be removed when published as artifacts.", "Advanced")]
+        [Display("Delete on publish", "If true the files will be removed when published as artifacts.", Order: 1)]
         public bool DeleteOnPublish { get; set; } = false;
 
-        [Display("Method", "The compression method to use when writing the file.", "Advanced")]
+        [Display("Method", "The compression method to use when writing the file.", "Compression", 2, false)]
         public CompressionMethod CompressionMethod { get; set; } = CompressionMethod.Snappy;
 
-        [Display("Level", "The compression level to use when writing the file.", "Advanced")]
+        [Display("Level", "The compression level to use when writing the file.", "Compression", 3, false)]
         public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
+        
+        [Display("Rowgroup size", "The ideal size of each row group measured in rows. Each Row Group size should roughly fit with one memory page for ideal performance.", "Encoding", Order:4, Collapsed: true)]
+        public int RowGroupSize { get; set; } = 10_000;
 
-        [Display("Rowgroup size", "The amount of rows per rowgroup saved in a parquet file.", "Advanced")]
-        public int RowgroupSize { get; set; } = 10_000;
+        [Display("Use dictionary encoding",
+            "Whether to use dictionary encoding for string columns. Other column types are not supported.",
+            "Encoding", 5, true)]
+        public bool UseDictionaryEncoding { get; set; } = true;
 
+        [Display("Dictionary encoding threshold",
+            "String dictionary uniqueness threshold, which is a value from 0 (no unique values) to 1 (all values are unique) indicating when string dictionary encoding is applied. Uniqueness factor needs to be less or equal than this threshold.",
+            "Encoding", 6, true)]
+        public double DictionaryEncodingThreshold { get; set; }= 0.8;
+
+        [Display("Use delta binary packed encoding",
+            "When set, the default encoding for INT32 and INT64 is 'delta binary packed', otherwise it's reverted to 'plain'. You should only set this to true if your readers understand it.",
+            "Encoding", 7, true)]
+        public bool UseDeltaBinaryPackedEncoding { get; set; } = true;
+        
         public ParquetResultListener()
         {
             Name = "Parquet";
@@ -98,7 +113,18 @@ namespace OpenTap.Plugins.Parquet
 
             if (!_results.TryGetValue(path, out ParquetResult? result))
             {
-                result = new ParquetResult(path, RowgroupSize, CompressionMethod, CompressionLevel);
+                result = new ParquetResult(path, new ParquetResult.Options()
+                {
+                    RowGroupSize = RowGroupSize,
+                    CompressionMethod = CompressionMethod,
+                    CompressionLevel = CompressionLevel,
+                    ParquetOptions =
+                    {
+                        UseDictionaryEncoding = UseDictionaryEncoding,
+                        DictionaryEncodingThreshold = DictionaryEncodingThreshold,
+                        UseDeltaBinaryPackedEncoding = UseDeltaBinaryPackedEncoding,
+                    },
+                });
                 _results.Add(path, result);
             }
 
