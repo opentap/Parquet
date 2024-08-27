@@ -1,6 +1,7 @@
 using System.Data;
 using NUnit.Framework;
 using OpenTap.Plugins.Parquet;
+using Parquet.Schema;
 using DataColumn = Parquet.Data.DataColumn;
 
 namespace Parquet.Tests;
@@ -144,6 +145,102 @@ public class ParquetFragmentTests
     }
 
     [Test]
+    public async Task MultipleRowGroupsKeepsOrder()
+    {
+        string path = $"Tests/{nameof(ParquetFragmentTests)}/{nameof(MultipleRowGroupsKeepsOrder)}.parquet";
+
+        var results = new Dictionary<string, Array>()
+        {
+            { "data", Enumerable.Range(1, 50).ToArray() }
+        };
+        
+        var guid1 = Guid.NewGuid();
+        var guid2 = Guid.NewGuid();
+
+        var frag = new ParquetFragment(path, new ParquetResult.Options() { RowGroupSize = 50 });
+        Assert.True(frag.AddRows(null, null, null, null, null, null, null));
+        Assert.True(frag.AddRows(null, guid1, null, null, null, null, results));
+        Assert.True(frag.AddRows(null, guid2, null, null, null, null, results));
+
+        frag.WriteCache();
+        frag.Dispose(null);
+        
+        int guid1Val = 0;
+        int guid2Val = 0;
+
+        var reader = await ParquetReader.CreateAsync(path);
+        var fields = reader.Schema.Fields.Select((f, i) => (f.Name, i)).ToDictionary(t => t.Name, t => t.i);
+        var guidField = fields["Guid"];
+        var resultField = fields["Results/data"];
+        var table = await reader.ReadAsTableAsync();
+        for (int i = 0; i < table.Count; i++)
+        {
+            var row = table[i];
+            if (row[guidField]?.Equals(guid1) ?? false)
+            {
+                Assert.That(row[resultField], Is.EqualTo(++guid1Val));
+            }
+            if (row[guidField]?.Equals(guid2) ?? false)
+            {
+                Assert.That(row[resultField], Is.EqualTo(++guid2Val));
+            }
+        }
+    }
+    
+    [TestCase]
+    public async Task MultipleFilesKeepsOrder(bool splitRowgroups = true)
+    {
+        string path = $"Tests/{nameof(ParquetFragmentTests)}/{nameof(MultipleFilesKeepsOrder)}.parquet";
+
+        var results1 = new Dictionary<string, Array>()
+        {
+            { "data1", Enumerable.Range(1, 50).ToArray() }
+        };
+        var results2 = new Dictionary<string, Array>()
+        {
+            { "data2", Enumerable.Range(1, 50).ToArray() }
+        };
+        
+        var guid1 = Guid.NewGuid();
+        var guid2 = Guid.NewGuid();
+
+        var frag1 = new ParquetFragment(path, new ParquetResult.Options() { RowGroupSize = 50 });
+        if (splitRowgroups)
+        {
+            Assert.True(frag1.AddRows(null, null, null, null, null, null, null));
+        }
+        Assert.True(frag1.AddRows(null, guid1, null, null, null, null, results1));
+        Assert.False(frag1.AddRows(null, guid2, null, null, null, null, results2));
+        frag1.Dispose();
+        var frag2 = new ParquetFragment(frag1);
+
+        frag2.WriteCache();
+        frag2.Dispose(new ParquetFragment[]{frag1});
+        
+        int guid1Val = 0;
+        int guid2Val = 0;
+
+        var reader = await ParquetReader.CreateAsync(path);
+        var fields = reader.Schema.Fields.Select((f, i) => (f.Name, i)).ToDictionary(t => t.Name, t => t.i);
+        var guidField = fields["Guid"];
+        var resultField1 = fields["Results/data1"];
+        var resultField2 = fields["Results/data2"];
+        var table = await reader.ReadAsTableAsync();
+        for (int i = 0; i < table.Count; i++)
+        {
+            var row = table[i];
+            if (row[guidField]?.Equals(guid1) ?? false)
+            {
+                Assert.That(row[resultField1], Is.EqualTo(++guid1Val));
+            }
+            if (row[guidField]?.Equals(guid2) ?? false)
+            {
+                Assert.That(row[resultField2], Is.EqualTo(++guid2Val));
+            }
+        }
+    }
+
+    [Test]
     public async Task FileMergingTest()
     {
         string path = $"Tests/{nameof(ParquetFragmentTests)}/{nameof(FileMergingTest)}.parquet";
@@ -189,7 +286,7 @@ public class ParquetFragmentTests
 
         var frag1 = new ParquetFragment(path + "1", new ParquetResult.Options());
         var frag2 = new ParquetFragment(path + "2", new ParquetResult.Options());
-        frag2.AddRows("2", null, null, null, null, null, null);
+        frag2.AddRows(null, null, null, null, null, null, null);
         Assert.Throws<InvalidOperationException>(() => frag2.Dispose(new []{frag1}));
     }
 }

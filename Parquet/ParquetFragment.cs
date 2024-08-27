@@ -95,14 +95,14 @@ internal sealed class ParquetFragment : IDisposable
             if (results is not null)
                 foreach(var item in results)
                 {
-                    fitsInCache &= AddToColumn("Results/" + item.Key, item.Value, startIndex, item.Value.Length);
+                    fitsInCache &= AddToColumn("Results/" + item.Key, item.Value, startIndex, count);
                 }
 
             foreach (var item in _cache)
             {
                 if (item.Value.Count < _cacheSize + count)
                 {
-                    fitsInCache &= AddToColumn(item.Key, item.Value.Field.ClrType, null, _cacheSize - item.Value.Count);
+                    fitsInCache &= AddToColumn(item.Key, item.Value.Field.ClrType, null, count);
                 }
             }
             
@@ -125,7 +125,12 @@ internal sealed class ParquetFragment : IDisposable
         Type type = values.GetType().GetElementType()!;
         bool fitsInCache = GetOrCreateColumn(name, type, out ColumnData data, out Type columnType);
 
-        Array.Copy(values.Cast<object?>().Skip(startIndex).Take(count).ToArray(), 0, data.Data, data.Count, count);
+        values = values.Cast<object?>()
+            .Skip(startIndex)
+            .Concat(Enumerable.Repeat<object?>(null, Math.Max(count - values.Length - startIndex, 0)))
+            .Take(count)
+            .ToArray();
+        Array.Copy(values, 0, data.Data, data.Count, count);
         data.Count += count;
 
         return fitsInCache;
