@@ -1,110 +1,102 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using Parquet.Extensions;
-using Parquet;
-using System.IO.Compression;
 using System.Linq;
 
 namespace OpenTap.Plugins.Parquet;
 
 public sealed class ParquetResult : IDisposable
 {
-
-    private readonly List<ParquetFragment> _oldFragments;
-    private ParquetFragment _currentFragment;
-
-    public sealed class Options
-    {
-        public int RowGroupSize { get; set; } = 10_000;
-        public CompressionMethod CompressionMethod { get; set; }= CompressionMethod.Snappy;
-        public CompressionLevel CompressionLevel { get; set; } = CompressionLevel.Optimal;
-        public ParquetOptions ParquetOptions { get; set; } = new ParquetOptions();
-    }
+    private readonly Options? _options;
+    private readonly List<ParquetFragment> _fragments;
 
     public ParquetResult(string path, Options? options = null)
     {
+        _options = options;
         Path = path;
-        _oldFragments = [];
-        _currentFragment = new(path, options ?? new Options(){ParquetOptions = { UseDeltaBinaryPackedEncoding = false }});
+        _fragments = [];
+        AddFragment();
     }
     
     public string Path { get; }
     
-    private ParquetFragment CurrentFragment {
-        get => _currentFragment;
-        set
+    private ParquetFragment CurrentFragment => _fragments[_fragments.Count - 1];
+
+    private void AddFragment()
+    {
+        if (_fragments.Count > 0)
         {
-            _oldFragments.Add(_currentFragment);
-            _currentFragment = value;
+            CurrentFragment.Dispose();
         }
+
+        _fragments.Add(new($"{Path}-{_fragments.Count}.tmp", _options ?? new Options()));
     }
 
     public void AddResultRow(TestStepRun run, ResultTable table)
     {
-        AddResultRow(table.Name, run.Id, run.Parent, run.TestStepId, run.GetParameters(), table.GetResults());
+        AddResultRow(table.Name, run.Id.ToString(), run.Parent.ToString(), run.TestStepId.ToString(), run.GetParameters(), table.GetResults());
     }
     
-    public void AddResultRow(string resultName, Guid runId, Guid parentId, Guid stepId, Dictionary<string, IConvertible> parameters, Dictionary<string, Array> results)
+    public void AddResultRow(string resultName, string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters, Dictionary<string, Array> results)
     {
-        if (!CurrentFragment.AddRows(
-                resultName,
-                runId,
-                parentId,
-                stepId,
-                null,
-                parameters,
-                results))
+        parameters = parameters.ToDictionary(kvp => "Step/" + kvp.Key, kvp => kvp.Value);
+        parameters.Add("ResultName", resultName);
+        parameters.Add("Guid", runId);
+        parameters.Add("ResultName", parentId);
+        parameters.Add("ResultName", stepId);
+        if (!CurrentFragment.AddRows(parameters, results))
         {
             CurrentFragment.Dispose();
-            CurrentFragment = new ParquetFragment(CurrentFragment);
+            AddFragment();
         }
     }
     
     public void AddStepRow(TestStepRun run)
     {
-        AddStepRow(run.Id, run.Parent, run.TestStepId, run.GetParameters());
+        AddStepRow(run.Id.ToString(), run.Parent.ToString(), run.TestStepId.ToString(), run.GetParameters());
     }
 
-    public void AddStepRow(Guid runId, Guid parentId, Guid stepId, Dictionary<string, IConvertible> parameters)
+    public void AddStepRow(string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters)
     {
-        if (!CurrentFragment.AddRows(
-                null,
-                runId,
-                parentId,
-                stepId,
-                null,
-                parameters,
-                null))
+        parameters = parameters.ToDictionary(kvp => "Step/" + kvp.Key, kvp => kvp.Value);
+        parameters.Add("Guid", runId);
+        parameters.Add("ResultName", parentId);
+        parameters.Add("ResultName", stepId);
+        if (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
         {
             CurrentFragment.Dispose();
-            CurrentFragment = new ParquetFragment(CurrentFragment);
+            AddFragment();
         }
     }
 
     public void AddPlanRow(TestPlanRun plan)
     {
-        AddPlanRow(plan.Id, plan.GetParameters());
+        AddPlanRow(plan.Id.ToString(), plan.GetParameters());
     }
 
-    public void AddPlanRow(Guid planId, Dictionary<string, IConvertible> parameters)
+    public void AddPlanRow(string planId, Dictionary<string, IConvertible> parameters)
     {
-        if (!CurrentFragment.AddRows(
-                null,
-                planId,
-                null,
-                null,
-                parameters,
-                null,
-                null))
+        parameters = parameters.ToDictionary(kvp => "Plan/" + kvp.Key, kvp => kvp.Value);
+        parameters.Add("Guid", planId);
+        if (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
         {
             CurrentFragment.Dispose();
-            CurrentFragment = new ParquetFragment(CurrentFragment);
+            AddFragment();
         }
     }
-
+    
     public void Dispose()
     {
-        CurrentFragment.WriteCache();
-        CurrentFragment.Dispose(_oldFragments);
+        foreach (ParquetFragment fragment in _fragments.TakeWhile(f => f != CurrentFragment))
+        {
+            CurrentFragment.MergeWith(fragment);
+        }
+        CurrentFragment.Dispose();
+        if (File.Exists(Path))
+        {
+            File.Delete(Path);
+        }
+        File.Move(CurrentFragment.Path, Path);
     }
 }

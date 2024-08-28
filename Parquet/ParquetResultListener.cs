@@ -118,7 +118,7 @@ namespace OpenTap.Plugins.Parquet
 
             if (!_results.TryGetValue(path, out ParquetResult? result))
             {
-                result = new ParquetResult(path, new ParquetResult.Options()
+                result = new ParquetResult(path, new Options()
                 {
                     RowGroupSize = RowGroupSize,
                     CompressionMethod = CompressionMethod,
