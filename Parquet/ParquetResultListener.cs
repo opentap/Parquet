@@ -40,6 +40,7 @@ namespace OpenTap.Plugins.Parquet
         [Display("Dictionary encoding threshold",
             "String dictionary uniqueness threshold, which is a value from 0 (no unique values) to 1 (all values are unique) indicating when string dictionary encoding is applied. Uniqueness factor needs to be less or equal than this threshold.",
             "Encoding", 6, true)]
+        [EnabledIf("UseDictionaryEncoding", true)]
         public double DictionaryEncodingThreshold { get; set; }= 0.8;
 
         [Display("Use delta binary packed encoding",

@@ -126,6 +126,7 @@ internal sealed class ParquetFragment : IDisposable
 
     private void AddColumn(string name, Type type)
     {
+        // Warning: This function should only be called if the writer is not null, otherwise we will get an error, next time writing the cache.
         ColumnData data = new ColumnData(name, GetParquetType(type), RowGroupSize, _cacheSize);
         _cache.Add(name, data);
         _fields.Add(data.Field);
@@ -153,7 +154,7 @@ internal sealed class ParquetFragment : IDisposable
         column.Count += count;
     }
 
-    public void WriteCache()
+    private void WriteCache()
     {
         if (_writer is null || _schema is null)
         {
@@ -210,7 +211,6 @@ internal sealed class ParquetFragment : IDisposable
                             Array.CreateInstance(field.ClrNullableIfHasNullsType, groupReader.RowCount));
                     }
                 }
-
                 writer.WriteColumnAsync(column).Wait();
             }
         }

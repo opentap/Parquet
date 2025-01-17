@@ -6,6 +6,9 @@ using System.Linq;
 
 namespace OpenTap.Plugins.Parquet;
 
+/// <summary>
+/// Write results 
+/// </summary>
 public sealed class ParquetResult : IDisposable
 {
     private readonly Options? _options;
@@ -43,8 +46,8 @@ public sealed class ParquetResult : IDisposable
         parameters = parameters.ToDictionary(kvp => "Step/" + kvp.Key, kvp => kvp.Value);
         parameters.Add("ResultName", resultName);
         parameters.Add("Guid", runId);
-        parameters.Add("ResultName", parentId);
-        parameters.Add("ResultName", stepId);
+        parameters.Add("Parent", parentId);
+        parameters.Add("StepId", stepId);
         if (!CurrentFragment.AddRows(parameters, results))
         {
             CurrentFragment.Dispose();
@@ -61,8 +64,8 @@ public sealed class ParquetResult : IDisposable
     {
         parameters = parameters.ToDictionary(kvp => "Step/" + kvp.Key, kvp => kvp.Value);
         parameters.Add("Guid", runId);
-        parameters.Add("ResultName", parentId);
-        parameters.Add("ResultName", stepId);
+        parameters.Add("Parent", parentId);
+        parameters.Add("Step", stepId);
         if (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
         {
             CurrentFragment.Dispose();
