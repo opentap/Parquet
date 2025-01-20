@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using OpenTap;
 
-namespace Parquet.Extensions
+namespace OpenTap.Plugins.Parquet.Extensions
 {
     internal static class ResultTableExtensions
     {

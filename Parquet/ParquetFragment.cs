@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using OpenTap.Plugins.Parquet.Extensions;
 using Parquet.Data;
 using Parquet.Extensions;
 using Parquet;

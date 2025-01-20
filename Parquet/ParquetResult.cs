@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Parquet.Extensions;
 using System.Linq;
+using OpenTap.Plugins.Parquet.Extensions;
 
 namespace OpenTap.Plugins.Parquet;
 

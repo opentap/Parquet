@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using OpenTap;
-using OpenTap.Plugins.Parquet;
 
-namespace Parquet.Extensions
+namespace OpenTap.Plugins.Parquet.Extensions
 {
     internal static class TestRunExtensions
     {
