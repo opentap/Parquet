@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using OpenTap.Plugins.Parquet.Core.Extensions;
 using Parquet.Data;
-using Parquet.Extensions;
 using Parquet;
 
 namespace OpenTap.Plugins.Parquet;

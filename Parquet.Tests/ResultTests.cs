@@ -1,6 +1,5 @@
 using NUnit.Framework;
 using OpenTap.Plugins.Parquet;
-using Parquet.Tests.Extensions;
 
 namespace Parquet.Tests;
 
@@ -37,8 +36,23 @@ public class ResultTests
         Assert.True(System.IO.File.Exists(path));
 
         var table = await ParquetReader.ReadTableFromFileAsync(path);
-        table.AssertSchema("ResultName", "Guid", "Parent", "StepId", "Step/Param1", "Step/Param2", "Step/Param3", "Step/Group/Param", "Result/Value1", "Result/Value2", "Result/Value3");
-        table.AssertRows(50, (row, i) => row.AssertValues(resultName, guid, parent, stepId, "Param1", 2, 3.141, true, "test", i, null));
+        string[] fields =
+        [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Step/Param1", "Step/Param2", "Step/Param3", "Step/Group/Param",
+            "Result/Value1", "Result/Value2", "Result/Value3"
+        ];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(table.Count, Is.EqualTo(50));
+        for (int i = 0; i < 50; i++)
+        {
+            object?[] values = [
+                resultName, guid, parent, stepId,
+                "Param1", 2, 3.141, true,
+                "test", i, null
+            ];
+            Assert.That(table[i], Is.EquivalentTo(values));
+        }
     }
     
     [Test]
@@ -65,8 +79,17 @@ public class ResultTests
         Assert.True(System.IO.File.Exists(path));
 
         var table = await ParquetReader.ReadTableFromFileAsync(path);
-        table.AssertSchema("ResultName", "Guid", "Parent", "StepId", "Step/Param1", "Step/Param2", "Step/Param3", "Step/Group/Param");
-        table.AssertRows(1, row => row.AssertValues(null, guid, parent, stepId, "Param1", 2, 3.141, true));
+        string[] fields = [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Step/Param1", "Step/Param2", "Step/Param3", "Step/Group/Param"
+        ];
+        object?[] values = [
+            null, guid, parent, stepId,
+            "Param1", 2, 3.141, true
+        ];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(table.Count, Is.EqualTo(1));
+        Assert.That(table[0], Is.EquivalentTo(values));
     }
     
     [Test]
@@ -91,7 +114,16 @@ public class ResultTests
         Assert.True(System.IO.File.Exists(path));
 
         var table = await ParquetReader.ReadTableFromFileAsync(path);
-        table.AssertSchema("ResultName", "Guid", "Parent", "StepId", "Plan/Param1", "Plan/Param2", "Plan/Param3", "Plan/Group/Param");
-        table.AssertRows(1, row => row.AssertValues(null, guid, null, null, "Param1", 2, 3.141, true));
+        string[] fields = [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Plan/Param1", "Plan/Param2", "Plan/Param3", "Plan/Group/Param"
+        ];
+        object?[] values = [
+            null, guid, null, null,
+            "Param1", 2, 3.141, true
+        ];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(table.Count, Is.EqualTo(1));
+        Assert.That(table[0], Is.EquivalentTo(values));
     }
 }

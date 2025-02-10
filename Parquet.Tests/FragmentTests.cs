@@ -1,10 +1,5 @@
-using System.Data;
 using NUnit.Framework;
 using OpenTap.Plugins.Parquet;
-using Parquet.Schema;
-using Parquet.Tests.Extensions;
-using DataColumn = Parquet.Data.DataColumn;
-using SchemaType = Parquet.Schema.SchemaType;
 
 namespace Parquet.Tests;
 
@@ -21,8 +16,9 @@ public class FragmentTests
         Assert.True(System.IO.File.Exists(path));
 
         var table = await ParquetReader.ReadTableFromFileAsync(path);
-        table.AssertSchema("ResultName", "Guid", "Parent", "StepId");
-        table.AssertRows(0, row => row.AssertValues());
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId"];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(table.Count, Is.EqualTo(0));
     }
     
     [Test]
@@ -37,8 +33,12 @@ public class FragmentTests
         Assert.True(System.IO.File.Exists(path));
 
         var table = await ParquetReader.ReadTableFromFileAsync(path);
-        table.AssertSchema("ResultName", "Guid", "Parent", "StepId");
-        table.AssertRows(1, row => row.AssertValues(null, null, null, null));
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId"];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+
+        Assert.That(table.Count, Is.EqualTo(1));
+        object?[] values = [null, null, null, null];
+        Assert.That(table[0], Is.EquivalentTo(values));
     }
     
     [Test]
@@ -64,8 +64,15 @@ public class FragmentTests
         Assert.True(System.IO.File.Exists(path));
 
         var table = await ParquetReader.ReadTableFromFileAsync(path);
-        table.AssertSchema("ResultName", "Guid", "Parent", "StepId");
-        table.AssertRows(1, row => row.AssertValues(resultName, guid, parent, stepId));
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId"];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+
+        Assert.That(table.Count, Is.EqualTo(1));
+        for (int i = 0; i < 1; i++)
+        {
+            object?[] values = [resultName, guid, parent, stepId];
+            Assert.That(table[i], Is.EquivalentTo(values));
+        }
     }
     
     [TestCase(0, "Hello", "World")]
@@ -88,8 +95,11 @@ public class FragmentTests
         Assert.True(System.IO.File.Exists(path));
 
         var table = await ParquetReader.ReadTableFromFileAsync(path);
-        table.AssertSchema("ResultName", "Guid", "Parent", "StepId", name);
-        table.AssertRows(1, row => row.AssertValues(null, null, null, null, value));
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId", name];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(table.Count, Is.EqualTo(1));
+        object?[] values = [null, null, null, null, value];
+        Assert.That(table[0], Is.EquivalentTo(values));
     }
     
     [Test]
@@ -108,8 +118,14 @@ public class FragmentTests
         Assert.True(System.IO.File.Exists(path));
 
         var table = await ParquetReader.ReadTableFromFileAsync(path);
-        table.AssertSchema("ResultName", "Guid", "Parent", "StepId", "Custom/Int/Column", "Custom/Float/Column");
-        table.AssertRows(50, (row, i) => row.AssertValues(null, null, null, null, i, i + 0.123f));
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Custom/Int/Column", "Custom/Float/Column"];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(table.Count, Is.EqualTo(50));
+        for (int i = 0; i < 50; i++)
+        {
+            object?[] values = [null, null, null, null, i, i + 0.123f];
+            Assert.That(table[i], Is.EquivalentTo(values));
+        }
     }
     
     [TestCase(1)]
@@ -146,8 +162,14 @@ public class FragmentTests
         Assert.True(System.IO.File.Exists(path));
     
         var table = await ParquetReader.ReadTableFromFileAsync(path);
-        table.AssertSchema("ResultName", "Guid", "Parent", "StepId", "Result/data");
-        table.AssertRows(100, (row, i) => row.AssertValues(null, i < 50 ? guid1 : guid2, null, null, i));
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Result/data"];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(table.Count, Is.EqualTo(100));
+        for (int i = 0; i < 100; i++)
+        {
+            object?[] values = [null, i < 50 ? guid1 : guid2, null, null, i];
+            Assert.That(table[i], Is.EquivalentTo(values));
+        }
     }
     //
     // [TestCase]

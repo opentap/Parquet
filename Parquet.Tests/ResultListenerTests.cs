@@ -1,7 +1,6 @@
 ﻿using NUnit.Framework;
 using OpenTap;
 using OpenTap.Plugins.Parquet;
-using Parquet.Tests.Extensions;
 
 namespace Parquet.Tests;
 
@@ -45,6 +44,9 @@ internal class ResultListenerTests
         Assert.That(System.IO.File.Exists(path), Is.True);
 
         var table = await ParquetReader.ReadTableFromFileAsync(path);
-        table.AssertRows(1, row => row.AssertContains(result.Id.ToString()));
+
+        Assert.That(table.Count, Is.EqualTo(1));
+        object?[] values = [result.Id.ToString()];
+        Assert.That(table[0], Is.SupersetOf(values));
     }
 }
