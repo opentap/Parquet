@@ -171,6 +171,39 @@ public class FragmentTests
             Assert.That(table[i], Is.EquivalentTo(values));
         }
     }
+
+    [TestCase(1)]
+    [TestCase(24)]
+    [TestCase(25)]
+    [TestCase(26)]
+    [TestCase(50)]
+    [TestCase(75)]
+    public async Task ArraysOfDifferentSizeTest(int rowGroupSize)
+    {
+        string path = $"Tests/{nameof(FragmentTests)}/{nameof(ArraysOfDifferentSizeTest)}-{rowGroupSize}.parquet";
+
+        var results = new Dictionary<string, Array>()
+        {
+            { "Column1", Enumerable.Range(0, 50).ToArray() },
+            { "Column2", Enumerable.Range(0, 25).ToArray() },
+        };
+        
+        var frag = new Fragment(path, new Options() { RowGroupSize = rowGroupSize });
+        frag.AddRows(new Dictionary<string, IConvertible>(), results);
+        frag.Dispose();
+        
+        Assert.True(System.IO.File.Exists(path));
+        
+        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Column1", "Column2"];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(table.Count, Is.EqualTo(50));
+        for (int i = 0; i < 50; i++)
+        {
+            object?[] values = [null, null, null, null, i, i < 25 ? i : null];
+            Assert.That(table[i], Is.EquivalentTo(values));
+        }
+    }
     //
     // [TestCase]
     // public async Task MultipleFilesKeepsOrder(bool splitRowgroups = true)

@@ -147,7 +147,7 @@ internal sealed class Fragment : IDisposable
     private void AddToColumn(ColumnData column, Array values, int startIndex, int count){
         values = values.Cast<object?>()
             .Skip(startIndex)
-            .Concat(Enumerable.Repeat<object?>(null, Math.Max(count - values.Length - startIndex, 0)))
+            .Concat(Enumerable.Repeat<object?>(null, Math.Max(count + startIndex - values.Length, 0)))
             .Take(count)
             .ToArray();
         Array.Copy(values, 0, column.Data, column.Count, count);
