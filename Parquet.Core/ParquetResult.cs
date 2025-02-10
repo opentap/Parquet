@@ -12,7 +12,7 @@ namespace OpenTap.Plugins.Parquet;
 public sealed class ParquetResult : IDisposable
 {
     private readonly Options? _options;
-    private readonly List<ParquetFragment> _fragments;
+    private readonly List<Fragment> _fragments;
 
     public ParquetResult(string path, Options? options = null)
     {
@@ -24,7 +24,7 @@ public sealed class ParquetResult : IDisposable
     
     public string Path { get; }
     
-    private ParquetFragment CurrentFragment => _fragments[_fragments.Count - 1];
+    private Fragment CurrentFragment => _fragments[_fragments.Count - 1];
 
     private void AddFragment()
     {
@@ -43,6 +43,7 @@ public sealed class ParquetResult : IDisposable
         parameters.Add("Guid", runId);
         parameters.Add("Parent", parentId);
         parameters.Add("StepId", stepId);
+        results = results.ToDictionary(kvp => "Result/" + kvp.Key, kvp => kvp.Value);
         if (!CurrentFragment.AddRows(parameters, results))
         {
             CurrentFragment.Dispose();
@@ -56,7 +57,7 @@ public sealed class ParquetResult : IDisposable
         parameters = parameters.ToDictionary(kvp => "Step/" + kvp.Key, kvp => kvp.Value);
         parameters.Add("Guid", runId);
         parameters.Add("Parent", parentId);
-        parameters.Add("Step", stepId);
+        parameters.Add("StepId", stepId);
         if (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
         {
             CurrentFragment.Dispose();
@@ -77,7 +78,7 @@ public sealed class ParquetResult : IDisposable
     
     public void Dispose()
     {
-        foreach (ParquetFragment fragment in _fragments.TakeWhile(f => f != CurrentFragment))
+        foreach (Fragment fragment in _fragments.TakeWhile(f => f != CurrentFragment))
         {
             CurrentFragment.MergeWith(fragment);
         }

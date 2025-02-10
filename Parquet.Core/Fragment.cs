@@ -11,7 +11,7 @@ using Parquet;
 
 namespace OpenTap.Plugins.Parquet;
 
-internal sealed class ParquetFragment : IDisposable
+internal sealed class Fragment : IDisposable
 {
     private class ColumnData
     {
@@ -39,7 +39,7 @@ internal sealed class ParquetFragment : IDisposable
 
     private int RowGroupSize => _options.RowGroupSize;
 
-    public ParquetFragment(string path,  Options options)
+    public Fragment(string path,  Options options)
     {
         Path = path;
         _options = options;
@@ -181,7 +181,7 @@ internal sealed class ParquetFragment : IDisposable
     }
 
     // Merge another parquet fragment into this fragment.
-    public void MergeWith(ParquetFragment other)
+    public void MergeWith(Fragment other)
     {
         WriteCache();
         Dictionary<string, DataColumn> emptyColumns = new();
