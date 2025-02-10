@@ -8,13 +8,12 @@ using OpenTap.Plugins.Parquet.Extensions;
 namespace OpenTap.Plugins.Parquet;
 
 [Display("Parquet", "Save results in a Parquet file", "Database")]
-public sealed class ParquetResultListener : ResultListener
+public sealed class ParquetResultListener : ResultListener, IMergedTableResultListener
 {
     internal new static TraceSource Log { get; } = OpenTap.Log.CreateSource("Parquet");
 
-    private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRuns = new();
-    private readonly Dictionary<Guid, TestStepRun> _guidToStepRuns = new();
-    private readonly HashSet<Guid> _hasWrittenParameters = [];
+    private readonly Dictionary<Guid, List<ResultTable>> _tables = new();
+    private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRun = new();
     private readonly Dictionary<string, ParquetResult> _results = new();
 
     [Display("File path", "The file path of the parquet file(s). Can use <ResultType> to have one file per result type.", Order: 0)]
@@ -58,7 +57,7 @@ public sealed class ParquetResultListener : ResultListener
     {
         base.OnTestPlanRunStart(planRun);
 
-        _guidToPlanRuns[planRun.Id] = planRun;
+        _guidToPlanRun[planRun.Id] = planRun;
         GetFile(planRun).AddPlanRow(planRun);
     }
 
@@ -77,38 +76,43 @@ public sealed class ParquetResultListener : ResultListener
         }
         _results.Clear();
 
-        _guidToPlanRuns.Clear();
-        _guidToStepRuns.Clear();
+        _guidToPlanRun.Clear();
     }
 
     public override void OnTestStepRunStart(TestStepRun stepRun)
     {
-        _guidToStepRuns[stepRun.Id] = stepRun;
+        _guidToPlanRun[stepRun.Id] = _guidToPlanRun[stepRun.Parent];
         base.OnTestStepRunStart(stepRun);
     }
 
     public override void OnTestStepRunCompleted(TestStepRun stepRun)
     {
         base.OnTestStepRunCompleted(stepRun);
-
-        if (!_hasWrittenParameters.Contains(stepRun.Id))
+        TestPlanRun planRun = _guidToPlanRun[stepRun.Id];
+        
+        if (!_tables.TryGetValue(stepRun.Id, out List<ResultTable>? tables))
         {
-            TestPlanRun planRun = GetPlanRun(stepRun);
-                
             GetFile(planRun).AddStepRow(stepRun);
-            _hasWrittenParameters.Add(stepRun.Id);
+            return;
         }
+
+        foreach (ResultTable resultTable in tables)
+        {
+            GetFile(planRun, resultTable.Name).AddResultRow(stepRun, resultTable);
+        }
+        tables.Clear();
     }
 
     public override void OnResultPublished(Guid stepRunId, ResultTable result)
     {
         base.OnResultPublished(stepRunId, result);
-        TestStepRun stepRun = _guidToStepRuns[stepRunId];
-        TestPlanRun planRun = GetPlanRun(stepRun);
 
-        GetFile(planRun, result.Name).AddResultRow(stepRun, result);
-
-        _hasWrittenParameters.Add(stepRunId);
+        if (!_tables.TryGetValue(stepRunId, out var tables))
+        {
+            tables = [];
+            _tables[stepRunId] = tables;
+        }
+        tables.Add(result);
     }
 
     private ParquetResult GetFile(TestPlanRun planRun, string resultType = "Plan")
@@ -136,15 +140,5 @@ public sealed class ParquetResultListener : ResultListener
         }
 
         return result;
-    }
-
-    private TestPlanRun GetPlanRun(TestStepRun run)
-    {
-        TestPlanRun? planRun;
-        while (!_guidToPlanRuns.TryGetValue(run.Parent, out planRun))
-        {
-            run = _guidToStepRuns[run.Parent];
-        }
-        return planRun;
     }
 }
