@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using Parquet.Extensions;
 using System.Linq;
-using OpenTap.Plugins.Parquet.Extensions;
 
 namespace OpenTap.Plugins.Parquet;
 
@@ -36,11 +35,6 @@ public sealed class ParquetResult : IDisposable
 
         _fragments.Add(new($"{Path}-{_fragments.Count}.tmp", _options ?? new Options()));
     }
-
-    public void AddResultRow(TestStepRun run, ResultTable table)
-    {
-        AddResultRow(table.Name, run.Id.ToString(), run.Parent.ToString(), run.TestStepId.ToString(), run.GetParameters(), table.GetResults());
-    }
     
     public void AddResultRow(string resultName, string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters, Dictionary<string, Array> results)
     {
@@ -56,10 +50,6 @@ public sealed class ParquetResult : IDisposable
         }
     }
     
-    public void AddStepRow(TestStepRun run)
-    {
-        AddStepRow(run.Id.ToString(), run.Parent.ToString(), run.TestStepId.ToString(), run.GetParameters());
-    }
 
     public void AddStepRow(string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters)
     {
@@ -72,11 +62,6 @@ public sealed class ParquetResult : IDisposable
             CurrentFragment.Dispose();
             AddFragment();
         }
-    }
-
-    public void AddPlanRow(TestPlanRun plan)
-    {
-        AddPlanRow(plan.Id.ToString(), plan.GetParameters());
     }
 
     public void AddPlanRow(string planId, Dictionary<string, IConvertible> parameters)

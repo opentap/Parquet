@@ -1,6 +1,8 @@
 ﻿using NUnit.Framework;
 using OpenTap;
 using OpenTap.Plugins.BasicSteps;
+using OpenTap.Plugins.Parquet.Core.Extensions;
+using OpenTap.Plugins.Parquet.Extensions;
 using Parquet.Extensions;
 
 namespace Parquet.Tests

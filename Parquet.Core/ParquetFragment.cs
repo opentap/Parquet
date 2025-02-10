@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using OpenTap.Plugins.Parquet.Extensions;
+using OpenTap.Plugins.Parquet.Core.Extensions;
 using Parquet.Data;
 using Parquet.Extensions;
 using Parquet;
@@ -180,6 +180,7 @@ internal sealed class ParquetFragment : IDisposable
         _cacheSize = 0;
     }
 
+    // Merge another parquet fragment into this fragment.
     public void MergeWith(ParquetFragment other)
     {
         WriteCache();
@@ -195,25 +196,39 @@ internal sealed class ParquetFragment : IDisposable
             using ParquetRowGroupWriter writer = _writer!.CreateRowGroup();
             foreach (DataField field in _fields)
             {
-                if (!columns.TryGetValue(field.Name, out DataColumn? column))
-                {
-                    if (groupReader.RowCount == RowGroupSize)
-                    {
-                        if (!emptyColumns.TryGetValue(field.Name, out column))
-                        {
-                            column = new DataColumn(field,
-                                Array.CreateInstance(field.ClrNullableIfHasNullsType, RowGroupSize));
-                            emptyColumns.Add(field.Name, column);
-                        }
-                    }
-                    else
-                    {
-                        column = new DataColumn(field,
-                            Array.CreateInstance(field.ClrNullableIfHasNullsType, groupReader.RowCount));
-                    }
-                }
+                DataColumn column = GetColumn(columns, field, groupReader);
                 writer.WriteColumnAsync(column).Wait();
             }
+        }
+
+        // TODO: We should benchmark if all of this logic actually makes merging faster.
+        DataColumn GetColumn(Dictionary<string, DataColumn> columns, DataField field, ParquetRowGroupReader groupReader)
+        {
+            // Try to get column from other reader.
+            if (columns.TryGetValue(field.Name, out DataColumn? column))
+            {
+                return column;
+            }
+
+            // Create new DataColumn of correct size.
+            if (groupReader.RowCount != RowGroupSize)
+            {
+                return new DataColumn(field,
+                    Array.CreateInstance(field.ClrNullableIfHasNullsType, groupReader.RowCount));
+            }
+
+            // If size is correct we can use a cached empty column.
+            if (emptyColumns.TryGetValue(field.Name, out column))
+            {
+                return column;
+            }
+
+            // No cached empty column found, so create new column.
+            column = new DataColumn(field,
+                Array.CreateInstance(field.ClrNullableIfHasNullsType, RowGroupSize));
+            emptyColumns.Add(field.Name, column);
+
+            return column;
         }
     }
 
