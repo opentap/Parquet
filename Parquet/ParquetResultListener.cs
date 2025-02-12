@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using OpenTap.Plugins.Parquet.Core;
 using OpenTap.Plugins.Parquet.Extensions;
 
 namespace OpenTap.Plugins.Parquet;

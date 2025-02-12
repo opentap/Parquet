@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using OpenTap.Plugins.Parquet;
+using OpenTap.Plugins.Parquet.Core;
 
 namespace Parquet.Tests;
 
@@ -126,4 +127,8 @@ public class ResultTests
         Assert.That(table.Count, Is.EqualTo(1));
         Assert.That(table[0], Is.EquivalentTo(values));
     }
+    
+    // TODO: Insert tests with file merging.
+    // Test one: Can files be merged at all
+    // Test two: Do files keep their order when merged
 }

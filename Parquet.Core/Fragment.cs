@@ -1,30 +1,52 @@
-﻿using Parquet.Schema;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using OpenTap.Plugins.Parquet.Core.Extensions;
-using Parquet.Data;
 using Parquet;
+using Parquet.Data;
+using Parquet.Schema;
+using ColumnKey = (string name, System.Type type);
 
-namespace OpenTap.Plugins.Parquet;
+namespace OpenTap.Plugins.Parquet.Core;
 
 internal sealed class Fragment : IDisposable
 {
     private class ColumnData
     {
+        private DataField? _field;
+        
         public Array Data { get; }
         public int Count { get; set; } = 0;
-        public DataField Field { get; }
-        public Type ParquetType { get; }
 
-        public ColumnData(string name, Type type, int size, int existingCacheSize)
+        public DataField Field => _field ??= new DataField(UniqueName, ParquetType, true);
+        public Type ParquetType { get; }
+        public Type Type { get; }
+        public string Name { get; }
+        public string UniqueName { get; private set; }
+
+        public ColumnData(string uniqueName, string name, Type type, int size, int existingCacheSize)
         {
             Data = Array.CreateInstance(type.AsNullable(), size);
-            Field = new DataField(name, type, true);
             Count = existingCacheSize;
-            ParquetType = type;
+            _field = null;
+            ParquetType = GetParquetType(type);
+            Type = type;
+            UniqueName = uniqueName;
+            Name = name;
+        }
+
+        public bool TrySetName(string name)
+        {
+            if (_field is not null)
+            {
+                return false;
+            }
+
+            UniqueName = name;
+            return true;
         }
     }
 
@@ -33,12 +55,14 @@ internal sealed class Fragment : IDisposable
     private ParquetWriter? _writer;
     private ParquetSchema? _schema;
     private int _cacheSize;
-    private readonly List<DataField> _fields;
-    private readonly Dictionary<string, ColumnData> _cache;
+    private readonly List<ColumnData> _columns;
+    private readonly HashSet<string> _uniqueColumnNames = new();
+    private readonly Dictionary<string, Dictionary<Type, ColumnData>> _cache;
+    private readonly Dictionary<string, string> _metadata;
 
     private int RowGroupSize => _options.RowGroupSize;
 
-    public Fragment(string path,  Options options)
+    public Fragment(string path, Options options)
     {
         Path = path;
         _options = options;
@@ -48,12 +72,28 @@ internal sealed class Fragment : IDisposable
             Directory.CreateDirectory(dirPath);
         }
         _stream = File.Open(Path, FileMode.Create, FileAccess.Write);
-        _fields = new();
+        _columns = new();
         _cache = new();
+        _metadata = new();
         AddColumn("ResultName", typeof(string));
         AddColumn("Guid", typeof(string));
         AddColumn("Parent", typeof(string));
         AddColumn("StepId", typeof(string));
+    }
+
+    public void SetMetadata(string key, string value)
+    {
+        _metadata[key] = value;
+    }
+
+    private void UpdateMappings()
+    {
+        Dictionary<string, string> mappings = _cache
+            .Values
+            .Where(d => d.Count > 1)
+            .SelectMany(d => d.Values)
+            .ToDictionary(cd => cd.UniqueName, cd => cd.Name);
+        SetMetadata("Mappings", JsonSerializer.Serialize(mappings));
     }
     
     public string Path { get; }
@@ -73,16 +113,13 @@ internal sealed class Fragment : IDisposable
         {
             int count = Math.Min(RowGroupSize - _cacheSize, resultCount - startIndex);
 
-            foreach (KeyValuePair<string,ColumnData> kvp in _cache)
+            foreach (ColumnData column in _columns)
             {
-                string name = kvp.Key;
-                ColumnData column = kvp.Value;
-
-                if (arrayValues.TryGetValue(name, out Array? valueArr))
+                if (arrayValues.TryGetValue(column.Name, out Array? valueArr) && column.Type.IsAssignableFrom(valueArr.GetType().GetElementType()))
                 {
                     AddToColumn(column, valueArr, startIndex, count);
                 }
-                else if (values.TryGetValue(name, out IConvertible value))
+                else if (values.TryGetValue(column.Name, out IConvertible value))
                 {
                     AddToColumn(column, value, count);
                 }
@@ -102,20 +139,12 @@ internal sealed class Fragment : IDisposable
         return true;
     }
 
-    private bool FitsInCache(IEnumerable<(string, Type)> fields)
+    private bool FitsInCache(IEnumerable<ColumnKey> fields)
     {
+        // TODO: Test this function, rename- and add-column.
         foreach ((string name, Type type) in fields)
         {
-            if (_cache.ContainsKey(name))
-            {
-                continue;
-            }
-            
-            if (_writer is null)
-            {
-                AddColumn(name, type);
-            }
-            else
+            if (!FitsInCache(name, type))
             {
                 return false;
             }
@@ -124,12 +153,67 @@ internal sealed class Fragment : IDisposable
         return true;
     }
 
-    private void AddColumn(string name, Type type)
+    private bool FitsInCache(string name, Type type)
     {
-        // Warning: This function should only be called if the writer is not null, otherwise we will get an error, next time writing the cache.
-        ColumnData data = new ColumnData(name, GetParquetType(type), RowGroupSize, _cacheSize);
-        _cache.Add(name, data);
-        _fields.Add(data.Field);
+        if (!_cache.TryGetValue(name, out Dictionary<Type, ColumnData>? typeCache))
+        {
+            return AddColumn(name, type) is not null;
+        }
+
+        if (!typeCache.TryGetValue(type, out _))
+        {
+            if (typeCache.Count == 1)
+            {
+                ColumnData data = typeCache.Values.First();
+                data.TrySetName(FindUniqueName(data.Name + "/" + data.Type.Name));
+            }
+            return AddColumn(name, type, FindUniqueName(name + "/" + type.Name)) is not null;
+        }
+
+        return true;
+    }
+
+    private ColumnData? AddColumn(string name, Type type, string? uniqueName = null)
+    {
+        if (_writer is not null)
+        {
+            return null;
+        }
+
+        if (uniqueName == null)
+        {
+            uniqueName = FindUniqueName(name);
+        }
+
+        if (!_cache.TryGetValue(name, out Dictionary<Type, ColumnData>? typeCache))
+        {
+            typeCache = new();
+            _cache[name] = typeCache;
+        }
+        ColumnData data = new ColumnData(uniqueName, name, GetParquetType(type), RowGroupSize, _cacheSize);
+        typeCache.Add(type, data);
+        _columns.Add(data);
+        return data;
+    }
+
+    private string FindUniqueName(string name)
+    {
+        string str = name;
+        int attempt = 0;
+        while (_uniqueColumnNames.Contains(str))
+        {
+            str = name + attempt;
+            attempt += 1;
+    
+            if (attempt == int.MaxValue)
+            {
+                throw new Exception("Too many columns in parquet file.");
+            }
+        }
+    
+        _uniqueColumnNames.Add(name);
+    
+        return str;
     }
 
     private void AddToColumn(ColumnData column, IConvertible? value, int count){
@@ -158,15 +242,16 @@ internal sealed class Fragment : IDisposable
     {
         if (_writer is null || _schema is null)
         {
-            _schema = new ParquetSchema(_fields);
+            _schema = new ParquetSchema(_columns.Select(cd => cd.Field));
             _writer = ParquetWriter.CreateAsync(_schema, _stream, _options.ParquetOptions).Result;
             _writer.CompressionMethod = _options.CompressionMethod;
             _writer.CompressionLevel = _options.CompressionLevel;
+            _writer.CustomMetadata = _metadata;
         }
         using ParquetRowGroupWriter rowGroupWriter = _writer.CreateRowGroup();
         for (var i = 0; i < _schema.DataFields.Length; i++)
         {
-            ColumnData data = _cache[_schema.DataFields[i].Name];
+            ColumnData data = _columns[i];
             data.Count = 0;
             Array arr = data.Data;
             if (_cacheSize != RowGroupSize){
@@ -193,8 +278,9 @@ internal sealed class Fragment : IDisposable
             using ParquetRowGroupReader groupReader = reader.OpenRowGroupReader(i);
 
             using ParquetRowGroupWriter writer = _writer!.CreateRowGroup();
-            foreach (DataField field in _fields)
+            foreach (ColumnData cd in _columns)
             {
+                DataField field = cd.Field;
                 DataColumn column = GetColumn(columns, field, groupReader);
                 writer.WriteColumnAsync(column).Wait();
             }

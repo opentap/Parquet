@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using OpenTap.Plugins.Parquet;
+using OpenTap.Plugins.Parquet.Core;
 
 namespace Parquet.Tests;
 
@@ -9,7 +10,7 @@ public class FragmentTests
     public async Task CreateEmptyFileTest()
     {
         string path = $"Tests/{nameof(FragmentTests)}/{nameof(CreateEmptyFileTest)}.parquet";
-        
+
         var frag = new Fragment(path, new Options());
         frag.Dispose();
 
@@ -20,12 +21,12 @@ public class FragmentTests
         Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
         Assert.That(table.Count, Is.EqualTo(0));
     }
-    
+
     [Test]
     public async Task EmptyRowTest()
     {
         string path = $"Tests/{nameof(FragmentTests)}/{nameof(EmptyRowTest)}.parquet";
-        
+
         var frag = new Fragment(path, new Options());
         frag.AddRows(new Dictionary<string, IConvertible>(), new Dictionary<string, Array>());
         frag.Dispose();
@@ -40,7 +41,7 @@ public class FragmentTests
         object?[] values = [null, null, null, null];
         Assert.That(table[0], Is.EquivalentTo(values));
     }
-    
+
     [Test]
     public async Task PopulateDefaultColumnsTest()
     {
@@ -50,14 +51,14 @@ public class FragmentTests
         string guid = Guid.NewGuid().ToString();
         string parent = Guid.NewGuid().ToString();
         string stepId = Guid.NewGuid().ToString();
-        
+
         var frag = new Fragment(path, new Options());
         frag.AddRows(new Dictionary<string, IConvertible>()
         {
-            {"ResultName", resultName},
-            {"Guid", guid},
-            {"Parent", parent},
-            {"StepId", stepId}
+            { "ResultName", resultName },
+            { "Guid", guid },
+            { "Parent", parent },
+            { "StepId", stepId }
         }, new Dictionary<string, Array>());
         frag.Dispose();
 
@@ -74,7 +75,7 @@ public class FragmentTests
             Assert.That(table[i], Is.EquivalentTo(values));
         }
     }
-    
+
     [TestCase(0, "Hello", "World")]
     [TestCase(1, "This/Is/A/Group", "Some value")]
     [TestCase(2, "Values/int32", -5432)]
@@ -84,11 +85,11 @@ public class FragmentTests
     public async Task PopulateCustomColumnsTest(int caseId, string name, IConvertible value)
     {
         string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateCustomColumnsTest)}-{caseId}.parquet";
-        
+
         var frag = new Fragment(path, new Options());
         frag.AddRows(new Dictionary<string, IConvertible>()
         {
-            {name, value},
+            { name, value },
         }, new Dictionary<string, Array>());
         frag.Dispose();
 
@@ -101,17 +102,17 @@ public class FragmentTests
         object?[] values = [null, null, null, null, value];
         Assert.That(table[0], Is.EquivalentTo(values));
     }
-    
+
     [Test]
     public async Task PopulateCustomArrayColumnsTest()
     {
         string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateCustomColumnsTest)}.parquet";
-        
+
         var frag = new Fragment(path, new Options());
         frag.AddRows(new Dictionary<string, IConvertible>(), new Dictionary<string, Array>()
         {
-            {"Custom/Int/Column", Enumerable.Range(0, 50).ToArray()},
-            {"Custom/Float/Column", Enumerable.Range(0, 50).Select(i => i + 0.123f).ToArray()},
+            { "Custom/Int/Column", Enumerable.Range(0, 50).ToArray() },
+            { "Custom/Float/Column", Enumerable.Range(0, 50).Select(i => i + 0.123f).ToArray() },
         });
         frag.Dispose();
 
@@ -127,7 +128,7 @@ public class FragmentTests
             Assert.That(table[i], Is.EquivalentTo(values));
         }
     }
-    
+
     [TestCase(1)]
     [TestCase(25)]
     [TestCase(50)]
@@ -137,30 +138,30 @@ public class FragmentTests
     public async Task MultipleResultsKeepOrder(int rowGroupSize)
     {
         string path = $"Tests/{nameof(FragmentTests)}/{nameof(MultipleResultsKeepOrder)}-{rowGroupSize}.parquet";
-        
+
         var guid1 = Guid.NewGuid().ToString();
         var guid2 = Guid.NewGuid().ToString();
-    
+
         var frag = new Fragment(path, new Options() { RowGroupSize = rowGroupSize });
         frag.AddRows(new Dictionary<string, IConvertible>()
         {
-            {"Guid", guid1},
+            { "Guid", guid1 },
         }, new Dictionary<string, Array>()
         {
-            {"Result/data", Enumerable.Range(0, 50).ToArray()}
+            { "Result/data", Enumerable.Range(0, 50).ToArray() }
         });
         frag.AddRows(new Dictionary<string, IConvertible>()
         {
-            {"Guid", guid2},
+            { "Guid", guid2 },
         }, new Dictionary<string, Array>()
         {
-            {"Result/data", Enumerable.Range(50, 50).ToArray()}
+            { "Result/data", Enumerable.Range(50, 50).ToArray() }
         });
-    
+
         frag.Dispose();
-        
+
         Assert.True(System.IO.File.Exists(path));
-    
+
         var table = await ParquetReader.ReadTableFromFileAsync(path);
         string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Result/data"];
         Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
@@ -187,13 +188,13 @@ public class FragmentTests
             { "Column1", Enumerable.Range(0, 50).ToArray() },
             { "Column2", Enumerable.Range(0, 25).ToArray() },
         };
-        
+
         var frag = new Fragment(path, new Options() { RowGroupSize = rowGroupSize });
         frag.AddRows(new Dictionary<string, IConvertible>(), results);
         frag.Dispose();
-        
+
         Assert.True(System.IO.File.Exists(path));
-        
+
         var table = await ParquetReader.ReadTableFromFileAsync(path);
         string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Column1", "Column2"];
         Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
@@ -204,6 +205,53 @@ public class FragmentTests
             Assert.That(table[i], Is.EquivalentTo(values));
         }
     }
+
+    [TestCase(new [] { 0, 1, 2 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Int32", "Custom/Single")]
+    [TestCase(new [] { 0, 1, 2 }, new [] {0.1, 0.2, 0.3 },"Custom/Int32", "Custom/Double")]
+    [TestCase(new [] { 0.1, 1.2, 2.3 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Double", "Custom/Single")]
+    [TestCase(new [] { "String", "Test", "Hello" }, new [] {0.1f, 0.2f, 0.3f },"Custom/String", "Custom/Single")]
+    public async Task ArrayColumnTypeCollisionTest(Array arr1, Array arr2, string name1, string name2)
+    {
+        string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateCustomColumnsTest)}.parquet";
+        
+        var guid1 = Guid.NewGuid().ToString();
+        var guid2 = Guid.NewGuid().ToString();
+        
+        var frag = new Fragment(path, new Options());
+        frag.AddRows(new Dictionary<string, IConvertible>()
+        {
+            {"Guid", guid1},
+        }, new Dictionary<string, Array>()
+        {
+            {"Custom", arr1},
+        });
+        frag.AddRows(new Dictionary<string, IConvertible>()
+        {
+            {"Guid", guid2},
+        }, new Dictionary<string, Array>()
+        {
+            {"Custom", arr2},
+        });
+        frag.Dispose();
+
+        Assert.True(System.IO.File.Exists(path));
+        
+        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId", name1, name2];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(table.Count, Is.EqualTo(arr1.Length + arr2.Length));
+        for (int i = 0; i < arr1.Length; i++)
+        {
+            object?[] values = [null, guid1, null, null, arr1.GetValue(i), null];
+            Assert.That(table[i], Is.EquivalentTo(values));
+        }
+        for (int i = 0; i < arr2.Length; i++)
+        {
+            object?[] values = [null, guid2, null, null, null, arr2.GetValue(i)];
+            Assert.That(table[i + arr1.Length], Is.EquivalentTo(values));
+        }
+    }
+    
     //
     // [TestCase]
     // public async Task MultipleFilesKeepsOrder(bool splitRowgroups = true)
@@ -295,16 +343,5 @@ public class FragmentTests
     //             Assert.That(row[3], Is.EqualTo(equalRow.stepId));
     //         });
     //     }
-    // }
-    //
-    // [Test]
-    // public void CantMergeFragmentsWhenNotCompatibleTest()
-    // {
-    //     string path = $"Tests/{nameof(ParquetFragmentTests)}/{nameof(CantMergeFragmentsWhenNotCompatibleTest)}.parquet";
-    //
-    //     var frag1 = new ParquetFragment(path + "1", new Options());
-    //     var frag2 = new ParquetFragment(path + "2", new Options());
-    //     frag2.AddRows(null, null, null, null, null, null, null);
-    //     Assert.Throws<InvalidOperationException>(() => frag2.Dispose(new []{frag1}));
     // }
 }

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace OpenTap.Plugins.Parquet;
+namespace OpenTap.Plugins.Parquet.Core;
 
 /// <summary>
 /// Write results 

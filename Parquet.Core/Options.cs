@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using Parquet;
 
-namespace OpenTap.Plugins.Parquet;
+namespace OpenTap.Plugins.Parquet.Core;
 
 public sealed class Options
 {

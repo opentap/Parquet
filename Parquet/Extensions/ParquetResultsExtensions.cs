@@ -1,3 +1,5 @@
+using OpenTap.Plugins.Parquet.Core;
+
 namespace OpenTap.Plugins.Parquet.Extensions;
 
 internal static class ParquetResultsExtensions
