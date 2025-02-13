@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <Reference Include="OpenTap.Plugins.BasicSteps">
-      <HintPath>..\Parquet\bin\Debug\netstandard2.0\Packages\OpenTAP\OpenTap.Plugins.BasicSteps.dll</HintPath>
+      <HintPath>..\Parquet\bin\$(Configuration)\netstandard2.0\Packages\OpenTAP\OpenTap.Plugins.BasicSteps.dll</HintPath>
     </Reference>
   </ItemGroup>
 
