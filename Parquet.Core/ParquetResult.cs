@@ -5,9 +5,6 @@ using System.Linq;
 
 namespace OpenTap.Plugins.Parquet.Core;
 
-/// <summary>
-/// Write results 
-/// </summary>
 public sealed class ParquetResult : IDisposable
 {
     private readonly Options? _options;
@@ -22,17 +19,21 @@ public sealed class ParquetResult : IDisposable
     }
     
     public string Path { get; }
+
+    internal int FragmentCount => _fragments.Count;
     
     private Fragment CurrentFragment => _fragments[_fragments.Count - 1];
 
     private void AddFragment()
     {
-        if (_fragments.Count > 0)
+        string path = $"{Path}-{_fragments.Count}.tmp";
+        if (FragmentCount == 0)
         {
-            CurrentFragment.Dispose();
+            _fragments.Add(new($"{Path}-{_fragments.Count}.tmp", _options ?? new Options()));
+            return;
         }
-
-        _fragments.Add(new($"{Path}-{_fragments.Count}.tmp", _options ?? new Options()));
+        CurrentFragment.Dispose();
+        _fragments.Add(new (CurrentFragment, path));
     }
     
     public void AddResultRow(string resultName, string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters, Dictionary<string, Array> results)
@@ -43,9 +44,8 @@ public sealed class ParquetResult : IDisposable
         parameters.Add("Parent", parentId);
         parameters.Add("StepId", stepId);
         results = results.ToDictionary(kvp => "Result/" + kvp.Key, kvp => kvp.Value);
-        if (!CurrentFragment.AddRows(parameters, results))
+        while (!CurrentFragment.AddRows(parameters, results))
         {
-            CurrentFragment.Dispose();
             AddFragment();
         }
     }
@@ -57,9 +57,8 @@ public sealed class ParquetResult : IDisposable
         parameters.Add("Guid", runId);
         parameters.Add("Parent", parentId);
         parameters.Add("StepId", stepId);
-        if (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
+        while (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
         {
-            CurrentFragment.Dispose();
             AddFragment();
         }
     }
@@ -68,20 +67,25 @@ public sealed class ParquetResult : IDisposable
     {
         parameters = parameters.ToDictionary(kvp => "Plan/" + kvp.Key, kvp => kvp.Value);
         parameters.Add("Guid", planId);
-        if (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
+        while (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
         {
-            CurrentFragment.Dispose();
             AddFragment();
         }
     }
     
     public void Dispose()
     {
+        if (!CurrentFragment.CanEdit)
+        {
+            AddFragment();
+        }
+        
         foreach (Fragment fragment in _fragments.TakeWhile(f => f != CurrentFragment))
         {
             CurrentFragment.MergeWith(fragment);
         }
         CurrentFragment.Dispose();
+        
         if (File.Exists(Path))
         {
             File.Delete(Path);

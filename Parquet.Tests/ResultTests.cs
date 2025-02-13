@@ -131,4 +131,43 @@ public class ResultTests
     // TODO: Insert tests with file merging.
     // Test one: Can files be merged at all
     // Test two: Do files keep their order when merged
+    [Test]
+    public async Task FileMerging()
+    {
+        string path = $"Tests/{nameof(ResultTests)}/{nameof(FileMerging)}.parquet";
+        
+        string guid1 = Guid.NewGuid().ToString();
+        string guid2 = Guid.NewGuid().ToString();
+
+        Dictionary<string, IConvertible> parameters1 = new Dictionary<string, IConvertible>()
+        {
+            { "Param1", "Param1" },
+        };
+        Dictionary<string, IConvertible> parameters2 = new Dictionary<string, IConvertible>()
+        {
+            { "Param2", "Param2" },
+        };
+
+        ParquetResult result = new ParquetResult(path, new Options()
+        {
+            RowGroupSize = 1,
+        });
+        result.AddPlanRow(guid1, parameters1);
+        result.AddPlanRow(guid2, parameters2);
+        Assert.That(result.FragmentCount, Is.EqualTo(2));
+        result.Dispose();
+        
+        Assert.True(System.IO.File.Exists(path));
+
+        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        string[] fields = [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Plan/Param1", "Plan/Param2"
+        ];
+        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        object?[] values1 = [null, guid1, null, null, "Param1", null];
+        Assert.That(table[0], Is.EquivalentTo(values1));
+        object?[] values2 = [null, guid2, null, null, null, "Param2"];
+        Assert.That(table[1], Is.EquivalentTo(values2));
+    }
 }

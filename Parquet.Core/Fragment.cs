@@ -81,6 +81,23 @@ internal sealed class Fragment : IDisposable
         AddColumn("StepId", typeof(string));
     }
 
+    public Fragment(Fragment fragment, string path)
+    {
+        Path = path;
+        _options = fragment._options;
+        string? dirPath = System.IO.Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(dirPath) && !Directory.Exists(dirPath))
+        {
+            Directory.CreateDirectory(dirPath);
+        }
+        _stream = File.Open(Path, FileMode.Create, FileAccess.Write);
+        _columns = fragment._columns;
+        _cache = fragment._cache;
+        _metadata = fragment._metadata;
+    }
+
+    public bool CanEdit => _writer is null;
+    
     public void SetMetadata(string key, string value)
     {
         _metadata[key] = value;
@@ -175,7 +192,7 @@ internal sealed class Fragment : IDisposable
 
     private ColumnData? AddColumn(string name, Type type, string? uniqueName = null)
     {
-        if (_writer is not null)
+        if (!CanEdit)
         {
             return null;
         }
@@ -240,16 +257,13 @@ internal sealed class Fragment : IDisposable
 
     private void WriteCache()
     {
-        if (_writer is null || _schema is null)
+        if (_cacheSize == 0)
         {
-            _schema = new ParquetSchema(_columns.Select(cd => cd.Field));
-            _writer = ParquetWriter.CreateAsync(_schema, _stream, _options.ParquetOptions).Result;
-            _writer.CompressionMethod = _options.CompressionMethod;
-            _writer.CompressionLevel = _options.CompressionLevel;
-            _writer.CustomMetadata = _metadata;
+            return;
         }
-        using ParquetRowGroupWriter rowGroupWriter = _writer.CreateRowGroup();
-        for (var i = 0; i < _schema.DataFields.Length; i++)
+        EnsureWriterExists();
+        using ParquetRowGroupWriter rowGroupWriter = _writer!.CreateRowGroup();
+        for (var i = 0; i < _schema!.DataFields.Length; i++)
         {
             ColumnData data = _columns[i];
             data.Count = 0;
@@ -264,10 +278,22 @@ internal sealed class Fragment : IDisposable
         _cacheSize = 0;
     }
 
+    private void EnsureWriterExists()
+    {
+        if (CanEdit)
+        {
+            _schema = new ParquetSchema(_columns.Select(cd => cd.Field));
+            _writer = ParquetWriter.CreateAsync(_schema, _stream, _options.ParquetOptions).Result;
+            _writer.CompressionMethod = _options.CompressionMethod;
+            _writer.CompressionLevel = _options.CompressionLevel;
+            _writer.CustomMetadata = _metadata;
+        }
+    }
+
     // Merge another parquet fragment into this fragment.
     public void MergeWith(Fragment other)
     {
-        WriteCache();
+        EnsureWriterExists();
         Dictionary<string, DataColumn> emptyColumns = new();
 
         using ParquetReader reader = ParquetReader.CreateAsync(other.Path).Result;
@@ -294,25 +320,25 @@ internal sealed class Fragment : IDisposable
             {
                 return column;
             }
-
+        
             // Create new DataColumn of correct size.
             if (groupReader.RowCount != RowGroupSize)
             {
                 return new DataColumn(field,
                     Array.CreateInstance(field.ClrNullableIfHasNullsType, groupReader.RowCount));
             }
-
+        
             // If size is correct we can use a cached empty column.
             if (emptyColumns.TryGetValue(field.Name, out column))
             {
                 return column;
             }
-
+        
             // No cached empty column found, so create new column.
             column = new DataColumn(field,
                 Array.CreateInstance(field.ClrNullableIfHasNullsType, RowGroupSize));
             emptyColumns.Add(field.Name, column);
-
+        
             return column;
         }
     }
