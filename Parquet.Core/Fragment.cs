@@ -184,7 +184,9 @@ internal sealed class Fragment : IDisposable
                 ColumnData data = typeCache.Values.First();
                 data.TrySetName(FindUniqueName(data.Name + "/" + data.Type.Name));
             }
-            return AddColumn(name, type, FindUniqueName(name + "/" + type.Name)) is not null;
+            bool val = AddColumn(name, type, FindUniqueName(name + "/" + type.Name)) is not null;
+            UpdateMappings();
+            return val;
         }
 
         return true;
@@ -257,10 +259,6 @@ internal sealed class Fragment : IDisposable
 
     private void WriteCache()
     {
-        if (_cacheSize == 0)
-        {
-            return;
-        }
         EnsureWriterExists();
         using ParquetRowGroupWriter rowGroupWriter = _writer!.CreateRowGroup();
         for (var i = 0; i < _schema!.DataFields.Length; i++)

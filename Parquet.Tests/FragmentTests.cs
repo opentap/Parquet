@@ -1,6 +1,9 @@
+using Newtonsoft.Json;
 using NUnit.Framework;
 using OpenTap.Plugins.Parquet;
 using OpenTap.Plugins.Parquet.Core;
+using ZstdSharp.Unsafe;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace Parquet.Tests;
 
@@ -206,13 +209,13 @@ public class FragmentTests
         }
     }
 
-    [TestCase(new [] { 0, 1, 2 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Int32", "Custom/Single")]
-    [TestCase(new [] { 0, 1, 2 }, new [] {0.1, 0.2, 0.3 },"Custom/Int32", "Custom/Double")]
-    [TestCase(new [] { 0.1, 1.2, 2.3 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Double", "Custom/Single")]
-    [TestCase(new [] { "String", "Test", "Hello" }, new [] {0.1f, 0.2f, 0.3f },"Custom/String", "Custom/Single")]
-    public async Task ArrayColumnTypeCollisionTest(Array arr1, Array arr2, string name1, string name2)
+    [TestCase(1, new [] { 0, 1, 2 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Int32", "Custom/Single")]
+    [TestCase(2, new [] { 0, 1, 2 }, new [] {0.1, 0.2, 0.3 },"Custom/Int32", "Custom/Double")]
+    [TestCase(3, new [] { 0.1, 1.2, 2.3 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Double", "Custom/Single")]
+    [TestCase(4, new [] { "String", "Test", "Hello" }, new [] {0.1f, 0.2f, 0.3f },"Custom/String", "Custom/Single")]
+    public async Task ArrayColumnTypeCollisionTest(int testCase, Array arr1, Array arr2, string name1, string name2)
     {
-        string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateCustomColumnsTest)}.parquet";
+        string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateCustomColumnsTest)}-{testCase}.parquet";
         
         var guid1 = Guid.NewGuid().ToString();
         var guid2 = Guid.NewGuid().ToString();
@@ -250,98 +253,14 @@ public class FragmentTests
             object?[] values = [null, guid2, null, null, null, arr2.GetValue(i)];
             Assert.That(table[i + arr1.Length], Is.EquivalentTo(values));
         }
+
+        var reader = await ParquetReader.CreateAsync(path);
+        var metadata = reader.CustomMetadata;
+        var mappings = new Dictionary<string, string>()
+        {
+            [name1] = "Custom",
+            [name2] = "Custom",
+        };
+        Assert.That(metadata["Mappings"], Is.EqualTo(JsonSerializer.Serialize(mappings)));
     }
-    
-    //
-    // [TestCase]
-    // public async Task MultipleFilesKeepsOrder(bool splitRowgroups = true)
-    // {
-    //     string path = $"Tests/{nameof(ParquetFragmentTests)}/{nameof(MultipleFilesKeepsOrder)}.parquet";
-    //
-    //     var results1 = new Dictionary<string, Array>()
-    //     {
-    //         { "data1", Enumerable.Range(1, 50).ToArray() }
-    //     };
-    //     var results2 = new Dictionary<string, Array>()
-    //     {
-    //         { "data2", Enumerable.Range(1, 50).ToArray() }
-    //     };
-    //     
-    //     var guid1 = Guid.NewGuid();
-    //     var guid2 = Guid.NewGuid();
-    //
-    //     var frag1 = new ParquetFragment(path, new Options() { RowGroupSize = 50 });
-    //     if (splitRowgroups)
-    //     {
-    //         Assert.True(frag1.AddRows(null, null, null, null, null, null, null));
-    //     }
-    //     Assert.True(frag1.AddRows(null, guid1, null, null, null, null, results1));
-    //     Assert.False(frag1.AddRows(null, guid2, null, null, null, null, results2));
-    //     frag1.Dispose();
-    //     var frag2 = new ParquetFragment(frag1);
-    //
-    //     frag2.WriteCache();
-    //     frag2.Dispose(new ParquetFragment[]{frag1});
-    //     
-    //     int guid1Val = 0;
-    //     int guid2Val = 0;
-    //
-    //     var reader = await ParquetReader.CreateAsync(path);
-    //     var fields = reader.Schema.Fields.Select((f, i) => (f.Name, i)).ToDictionary(t => t.Name, t => t.i);
-    //     var guidField = fields["Guid"];
-    //     var resultField1 = fields["Results/data1"];
-    //     var resultField2 = fields["Results/data2"];
-    //     var table = await reader.ReadAsTableAsync();
-    //     for (int i = 0; i < table.Count; i++)
-    //     {
-    //         var row = table[i];
-    //         if (row[guidField]?.Equals(guid1) ?? false)
-    //         {
-    //             Assert.That(row[resultField1], Is.EqualTo(++guid1Val));
-    //         }
-    //         if (row[guidField]?.Equals(guid2) ?? false)
-    //         {
-    //             Assert.That(row[resultField2], Is.EqualTo(++guid2Val));
-    //         }
-    //     }
-    // }
-    //
-    // [Test]
-    // public async Task FileMergingTest()
-    // {
-    //     string path = $"Tests/{nameof(ParquetFragmentTests)}/{nameof(FileMergingTest)}.parquet";
-    //
-    //     var row1 = GenIds("row1");
-    //     var row2 = GenIds("row2");
-    //     
-    //     var frag1 = new ParquetFragment(path, new Options());
-    //     frag1.AddRows(row1.resultName, row1.guid, row1.parentId, row1.stepId, null, null, null);
-    //     frag1.WriteCache();
-    //     frag1.Dispose();
-    //
-    //     var frag2 = new ParquetFragment(frag1);
-    //     frag2.AddRows(row2.resultName, row2.guid, row2.parentId, row2.stepId, null, null, null);
-    //     frag2.WriteCache();
-    //     frag2.Dispose(new []{frag1});
-    //     Assert.True(System.IO.File.Exists(path));
-    //
-    //     var reader = await ParquetReader.CreateAsync(path);
-    //     Assert.That(reader.RowGroupCount, Is.EqualTo(2));
-    //     var table = await reader.ReadAsTableAsync();
-    //
-    //     Assert.That(table.Count, Is.EqualTo(2));
-    //     for (int i = 0; i < table.Count; i++)
-    //     {
-    //         var row = table[i];
-    //         Assert.That(row.Length, Is.EqualTo(4));
-    //         var equalRow = (string)row[0]! == row1.Item1 ? row1 : row2;
-    //         Assert.Multiple(() =>
-    //         {
-    //             Assert.That(row[0], Is.EqualTo(equalRow.resultName));
-    //             Assert.That(row[1], Is.EqualTo(equalRow.guid));
-    //             Assert.That(row[2], Is.EqualTo(equalRow.parentId));
-    //             Assert.That(row[3], Is.EqualTo(equalRow.stepId));
-    //         });
-    //     }
-    // }
 }
