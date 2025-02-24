@@ -34,7 +34,7 @@ public sealed class ParquetResultListener : ResultListener, IMergedTableResultLi
     public int RowGroupSize { get; set; } = 10_000;
 
     [Display("Use dictionary encoding",
-        "Whether to use dictionary encoding for string columns. Other column types are not supported.",
+        "Whether to use dictionary encoding for columns if data meets ParquetOptions.DictionaryEncodingThreshold The following CLR types are currently supported: string, DateTime, decimal, byte, short, ushort, int, uint, long, ulong, float, double",
         "Encoding", 5, true)]
     public bool UseDictionaryEncoding { get; set; } = true;
 
