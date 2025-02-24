@@ -19,10 +19,10 @@ public class FragmentTests
 
         Assert.True(System.IO.File.Exists(path));
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields = ["ResultName", "Guid", "Parent", "StepId"];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
-        Assert.That(table.Count, Is.EqualTo(0));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(0));
     }
 
     [Test]
@@ -36,13 +36,13 @@ public class FragmentTests
 
         Assert.True(System.IO.File.Exists(path));
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields = ["ResultName", "Guid", "Parent", "StepId"];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
 
-        Assert.That(table.Count, Is.EqualTo(1));
+        Assert.That(reader.RowGroupCount, Is.EqualTo(1));
         object?[] values = [null, null, null, null];
-        Assert.That(table[0], Is.EquivalentTo(values));
+        Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
     }
 
     [Test]
@@ -67,15 +67,15 @@ public class FragmentTests
 
         Assert.True(System.IO.File.Exists(path));
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields = ["ResultName", "Guid", "Parent", "StepId"];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
 
-        Assert.That(table.Count, Is.EqualTo(1));
+        Assert.That(reader.Count, Is.EqualTo(1));
         for (int i = 0; i < 1; i++)
         {
             object?[] values = [resultName, guid, parent, stepId];
-            Assert.That(table[i], Is.EquivalentTo(values));
+            Assert.That(reader.ReadRow(i), Is.EquivalentTo(values));
         }
     }
 
@@ -88,7 +88,7 @@ public class FragmentTests
     public async Task PopulateCustomColumnsTest(int caseId, string name, IConvertible value)
     {
         string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateCustomColumnsTest)}-{caseId}.parquet";
-
+        
         var frag = new Fragment(path, new Options());
         frag.AddRows(new Dictionary<string, IConvertible>()
         {
@@ -98,12 +98,12 @@ public class FragmentTests
 
         Assert.True(System.IO.File.Exists(path));
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields = ["ResultName", "Guid", "Parent", "StepId", name];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
-        Assert.That(table.Count, Is.EqualTo(1));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(1));
         object?[] values = [null, null, null, null, value];
-        Assert.That(table[0], Is.EquivalentTo(values));
+        Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
     }
 
     [Test]
@@ -121,14 +121,14 @@ public class FragmentTests
 
         Assert.True(System.IO.File.Exists(path));
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Custom/Int/Column", "Custom/Float/Column"];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
-        Assert.That(table.Count, Is.EqualTo(50));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(50));
         for (int i = 0; i < 50; i++)
         {
             object?[] values = [null, null, null, null, i, i + 0.123f];
-            Assert.That(table[i], Is.EquivalentTo(values));
+            Assert.That(reader.ReadRow(i), Is.EquivalentTo(values));
         }
     }
 
@@ -165,14 +165,14 @@ public class FragmentTests
 
         Assert.True(System.IO.File.Exists(path));
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Result/data"];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
-        Assert.That(table.Count, Is.EqualTo(100));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(100));
         for (int i = 0; i < 100; i++)
         {
             object?[] values = [null, i < 50 ? guid1 : guid2, null, null, i];
-            Assert.That(table[i], Is.EquivalentTo(values));
+            Assert.That(reader.ReadRow(i), Is.EquivalentTo(values));
         }
     }
 
@@ -198,14 +198,14 @@ public class FragmentTests
 
         Assert.True(System.IO.File.Exists(path));
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Column1", "Column2"];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
-        Assert.That(table.Count, Is.EqualTo(50));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(50));
         for (int i = 0; i < 50; i++)
         {
             object?[] values = [null, null, null, null, i, i < 25 ? i : null];
-            Assert.That(table[i], Is.EquivalentTo(values));
+            Assert.That(reader.ReadRow(i), Is.EquivalentTo(values));
         }
     }
 
@@ -239,22 +239,21 @@ public class FragmentTests
 
         Assert.True(System.IO.File.Exists(path));
         
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields = ["ResultName", "Guid", "Parent", "StepId", name1, name2];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
-        Assert.That(table.Count, Is.EqualTo(arr1.Length + arr2.Length));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(arr1.Length + arr2.Length));
         for (int i = 0; i < arr1.Length; i++)
         {
             object?[] values = [null, guid1, null, null, arr1.GetValue(i), null];
-            Assert.That(table[i], Is.EquivalentTo(values));
+            Assert.That(reader.ReadRow(i), Is.EquivalentTo(values));
         }
         for (int i = 0; i < arr2.Length; i++)
         {
             object?[] values = [null, guid2, null, null, null, arr2.GetValue(i)];
-            Assert.That(table[i + arr1.Length], Is.EquivalentTo(values));
+            Assert.That(reader.ReadRow(i + arr1.Length), Is.EquivalentTo(values));
         }
 
-        var reader = await ParquetReader.CreateAsync(path);
         var metadata = reader.CustomMetadata;
         var mappings = new Dictionary<string, string>()
         {

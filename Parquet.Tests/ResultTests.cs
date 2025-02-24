@@ -36,15 +36,15 @@ public class ResultTests
         
         Assert.True(System.IO.File.Exists(path));
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields =
         [
             "ResultName", "Guid", "Parent", "StepId",
             "Step/Param1", "Step/Param2", "Step/Param3", "Step/Group/Param",
             "Result/Value1", "Result/Value2", "Result/Value3"
         ];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
-        Assert.That(table.Count, Is.EqualTo(50));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(50));
         for (int i = 0; i < 50; i++)
         {
             object?[] values = [
@@ -52,7 +52,7 @@ public class ResultTests
                 "Param1", 2, 3.141, true,
                 "test", i, null
             ];
-            Assert.That(table[i], Is.EquivalentTo(values));
+            Assert.That(reader.ReadRow(i), Is.EquivalentTo(values));
         }
     }
     
@@ -79,7 +79,7 @@ public class ResultTests
         
         Assert.True(System.IO.File.Exists(path));
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields = [
             "ResultName", "Guid", "Parent", "StepId",
             "Step/Param1", "Step/Param2", "Step/Param3", "Step/Group/Param"
@@ -88,9 +88,9 @@ public class ResultTests
             null, guid, parent, stepId,
             "Param1", 2, 3.141, true
         ];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
-        Assert.That(table.Count, Is.EqualTo(1));
-        Assert.That(table[0], Is.EquivalentTo(values));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(1));
+        Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
     }
     
     [Test]
@@ -114,7 +114,7 @@ public class ResultTests
         
         Assert.True(System.IO.File.Exists(path));
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields = [
             "ResultName", "Guid", "Parent", "StepId",
             "Plan/Param1", "Plan/Param2", "Plan/Param3", "Plan/Group/Param"
@@ -123,9 +123,9 @@ public class ResultTests
             null, guid, null, null,
             "Param1", 2, 3.141, true
         ];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
-        Assert.That(table.Count, Is.EqualTo(1));
-        Assert.That(table[0], Is.EquivalentTo(values));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(1));
+        Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
     }
     
     // TODO: Insert tests with file merging.
@@ -159,15 +159,15 @@ public class ResultTests
         
         Assert.True(System.IO.File.Exists(path));
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
         string[] fields = [
             "ResultName", "Guid", "Parent", "StepId",
             "Plan/Param1", "Plan/Param2"
         ];
-        Assert.That(table.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
         object?[] values1 = [null, guid1, null, null, "Param1", null];
-        Assert.That(table[0], Is.EquivalentTo(values1));
+        Assert.That(reader.ReadRow(0), Is.EquivalentTo(values1));
         object?[] values2 = [null, guid2, null, null, null, "Param2"];
-        Assert.That(table[1], Is.EquivalentTo(values2));
+        Assert.That(reader.ReadRow(1), Is.EquivalentTo(values2));
     }
 }

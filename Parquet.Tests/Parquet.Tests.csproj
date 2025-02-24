@@ -22,9 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="OpenTap.Plugins.BasicSteps">
-      <HintPath>..\Parquet\bin\$(Configuration)\netstandard2.0\Packages\OpenTAP\OpenTap.Plugins.BasicSteps.dll</HintPath>
-    </Reference>
+    <PackageReference Include="OpenTAP" Version="9.22.3" />
+    <OpenTapPackageReference Include="OpenTAP" Verion="9.22.3" />
   </ItemGroup>
 
 </Project>

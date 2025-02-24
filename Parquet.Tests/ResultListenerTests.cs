@@ -8,8 +8,6 @@ namespace Parquet.Tests;
 public class ResultStep(string resultName, ResultColumn[] columns, ResultParameter[] parameters)
     : TestStep
 {
-    public int Parameter = 5;
-    
     public override void Run()
     {
         foreach (ResultParameter resultParameter in parameters)
@@ -62,22 +60,20 @@ internal class ResultListenerTests
 
         Assert.That(System.IO.File.Exists(path), Is.True);
         
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
 
-        Assert.That(table.Count, Is.EqualTo(51));
-        var fields = table.Schema.DataFields
-            .Select((f, index) => (f.Name, index)).ToDictionary(t => t.Name, t => t.index);
+        Assert.That(reader.Count, Is.EqualTo(51));
         for (int i = 0; i < 50; i++)
         {
-            Assert.That(table[i+1][fields["StepId"]], Is.EqualTo(step.Id.ToString()));
-            Assert.That(table[i+1][fields["Result/Column1"]], Is.EqualTo(i));
+            Assert.That(reader.ReadCell(i+1, "StepId"), Is.EqualTo(step.Id.ToString()));
+            Assert.That(reader.ReadCell(i+1, "Result/Column1"), Is.EqualTo(i));
         }
     }
 
     [Test]
     public async Task OutputResultsAndParametersTest()
     {
-        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(OutputResultsTest)}.parquet";
+        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(OutputResultsAndParametersTest)}.parquet";
         
         TestPlan plan = new TestPlan();
         ResultStep step = new ResultStep("Test",
@@ -94,23 +90,23 @@ internal class ResultListenerTests
 
         Assert.That(System.IO.File.Exists(path), Is.True);
         
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
 
-        Assert.That(table.Count, Is.EqualTo(51));
-        var fields = table.Schema.DataFields
+        Assert.That(reader.Count, Is.EqualTo(51));
+        var fields = reader.Schema.DataFields
             .Select((f, index) => (f.Name, index)).ToDictionary(t => t.Name, t => t.index);
         for (int i = 0; i < 50; i++)
         {
-            Assert.That(table[i+1][fields["StepId"]], Is.EqualTo(step.Id.ToString()));
-            Assert.That(table[i+1][fields["Result/Column1"]], Is.EqualTo(i));
-            Assert.That(table[i+1][fields["Step/Group/Parameter"]], Is.EqualTo(5));
+            Assert.That(reader.ReadCell(i+1, "StepId"), Is.EqualTo(step.Id.ToString()));
+            Assert.That(reader.ReadCell(i+1, "Result/Column1"), Is.EqualTo(i));
+            Assert.That(reader.ReadCell(i+1, "Step/Group/Parameter"), Is.EqualTo(5));
         }
     }
     
     [Test]
     public async Task StepWithoutResultsTest()
     {
-        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(OutputResultsTest)}.parquet";
+        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(StepWithoutResultsTest)}.parquet";
         
         TestPlan plan = new TestPlan();
         var step = new DelayStep();
@@ -124,11 +120,11 @@ internal class ResultListenerTests
 
         Assert.That(System.IO.File.Exists(path), Is.True);
         
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
 
-        Assert.That(table.Count, Is.EqualTo(2));
-        Assert.That(table.Schema.DataFields.Select(f => f.Name), Does.Contain("Step/Duration"));
-        Assert.That(table.Schema.DataFields.Any(f => f.Name.StartsWith("Result/")), Is.EqualTo(false));
+        Assert.That(reader.Count, Is.EqualTo(2));
+        Assert.That(reader.Schema.DataFields.Select(f => f.Name), Does.Contain("Step/Duration"));
+        Assert.That(reader.Schema.DataFields.Any(f => f.Name.StartsWith("Result/")), Is.EqualTo(false));
     }
 
     [Test]
@@ -149,10 +145,10 @@ internal class ResultListenerTests
         result.WaitForResults();
         Assert.That(System.IO.File.Exists(path), Is.True);
 
-        var table = await ParquetReader.ReadTableFromFileAsync(path);
+        var reader = await Reader.CreateAsync(path);
 
-        Assert.That(table.Count, Is.EqualTo(1));
+        Assert.That(reader.Count, Is.EqualTo(1));
         object?[] values = [result.Id.ToString()];
-        Assert.That(table[0], Is.SupersetOf(values));
+        Assert.That(reader.ReadRow(0), Is.SupersetOf(values));
     }
 }

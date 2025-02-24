@@ -1,0 +1,3 @@
+Parquet depends on newer versions of these assemblies (Microsoft.Bcl.AsyncInterfaces, System.Threading.Tasks.Extensions)
+This will force OpenTAP to not load the older versions.
+24/02-2025
