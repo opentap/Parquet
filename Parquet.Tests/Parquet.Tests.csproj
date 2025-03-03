@@ -22,8 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="OpenTAP" Version="9.22.3" />
-    <OpenTapPackageReference Include="OpenTAP" Verion="9.22.3" />
+    <PackageReference Include="OpenTAP" Version="9.27.1" />
+    <OpenTapPackageReference Include="OpenTAP" Verion="9.27.1" />
   </ItemGroup>
 
 </Project>

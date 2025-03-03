@@ -24,7 +24,7 @@
     <OpenTapPackageReference Include="Demonstration" version="beta" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="OpenTAP" Version="9.22.3" />
+    <PackageReference Include="OpenTAP" Version="9.27.1" />
     <PackageReference Include="Parquet.Net" Version="5.1.0" />
     <PackageReference Include="Snappier" Version="1.2.0" />
     <ProjectReference Include="..\Parquet.Core\Parquet.Core.csproj" />
