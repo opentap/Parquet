@@ -15,7 +15,7 @@ public sealed class ParquetResultListener : ResultListener, IMergedTableResultLi
 
     private readonly Dictionary<Guid, List<ResultTable>> _tables = new();
     private readonly Dictionary<Guid, TestPlanRun> _guidToPlanRun = new();
-    private readonly Dictionary<string, ParquetResult> _results = new();
+    private readonly Dictionary<string, ParquetFile> _results = new();
 
     [Display("File path", "The file path of the parquet file(s). Can use <ResultType> to have one file per result type.", Order: 0)]
     [FilePath(FilePathAttribute.BehaviorChoice.Save)]
@@ -66,7 +66,7 @@ public sealed class ParquetResultListener : ResultListener, IMergedTableResultLi
     {
         base.OnTestPlanRunCompleted(planRun, logStream);
             
-        foreach (ParquetResult parquetResult in _results.Values)
+        foreach (ParquetFile parquetResult in _results.Values)
         {
             parquetResult.Dispose();
             planRun.PublishArtifactAsync(parquetResult.Path);
@@ -116,16 +116,16 @@ public sealed class ParquetResultListener : ResultListener, IMergedTableResultLi
         tables.Add(result);
     }
 
-    private ParquetResult GetFile(TestPlanRun planRun, string resultType = "Plan")
+    private ParquetFile GetFile(TestPlanRun planRun, string resultType = "Plan")
     {
         string path = FilePath.Expand(planRun, planRun.StartTime, "./", new Dictionary<string, object>
         {
             { "ResultType", resultType }
         });
 
-        if (!_results.TryGetValue(path, out ParquetResult? result))
+        if (!_results.TryGetValue(path, out ParquetFile? result))
         {
-            result = new ParquetResult(path, new Options()
+            result = new ParquetFile(path, new Options()
             {
                 RowGroupSize = RowGroupSize,
                 CompressionMethod = CompressionMethod,

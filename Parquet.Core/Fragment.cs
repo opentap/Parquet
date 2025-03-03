@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using OpenTap.Plugins.Parquet.Core.Extensions;
 using Parquet;
@@ -12,6 +13,9 @@ using ColumnKey = (string name, System.Type type);
 
 namespace OpenTap.Plugins.Parquet.Core;
 
+/// A fragment is a partial parquet file.
+/// Each file consists of multiple fragments that will all get merged together at the end.
+/// A new fragment is created when a fragment has a <see cref="Fragment.CanEdit"/> value of false, and you add data to it that requires creation of new rows.
 internal sealed class Fragment : IDisposable
 {
     private class ColumnData
@@ -79,6 +83,8 @@ internal sealed class Fragment : IDisposable
         AddColumn("Guid", typeof(string));
         AddColumn("Parent", typeof(string));
         AddColumn("StepId", typeof(string));
+        SetMetadata("SchemaVersion", "1.0.0.0");
+        SetMetadata("Time", DateTime.Now.ToString("O"));
     }
 
     public Fragment(Fragment fragment, string path)

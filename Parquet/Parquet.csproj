@@ -3,7 +3,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <TargetName>OpenTap.Plugins.Parquet</TargetName>
     <RootNamespace>OpenTap.Plugins.Parquet</RootNamespace>
-    <DebugWith>Editor CE</DebugWith>
+    <DebugWith>Editor</DebugWith>
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>
     <AssemblyVersion>$(GitVersion)</AssemblyVersion>
@@ -19,7 +19,7 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <CreateOpenTapPackage>true</CreateOpenTapPackage>
   </PropertyGroup>
-  <ItemGroup Condition="'$(DebugWith)' == 'Editor CE' and '$(Configuration)' == 'Debug'">
+  <ItemGroup Condition="'$(DebugWith)' == 'Editor' and '$(Configuration)' == 'Debug'">
     <OpenTapPackageReference Include="Editor" version="beta" />
     <OpenTapPackageReference Include="Demonstration" version="beta" />
   </ItemGroup>

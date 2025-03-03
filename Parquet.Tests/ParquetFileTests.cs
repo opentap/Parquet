@@ -4,12 +4,12 @@ using OpenTap.Plugins.Parquet.Core;
 
 namespace Parquet.Tests;
 
-public class ResultTests
+public class ParquetFileTests
 {
     [Test]
     public async Task ResultRowTest()
     {
-        string path = $"Tests/{nameof(ResultTests)}/{nameof(ResultRowTest)}.parquet";
+        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(ResultRowTest)}.parquet";
         
         string resultName = "Test";
         string guid = Guid.NewGuid().ToString();
@@ -30,9 +30,9 @@ public class ResultTests
             { "Value3", Enumerable.Repeat<string?>(null, 50).ToArray() }
         };
 
-        ParquetResult result = new ParquetResult(path);
-        result.AddResultRow(resultName, guid, parent, stepId, parameters, results);
-        result.Dispose();
+        ParquetFile file = new ParquetFile(path);
+        file.AddResultRow(resultName, guid, parent, stepId, parameters, results);
+        file.Dispose();
         
         Assert.True(System.IO.File.Exists(path));
 
@@ -59,7 +59,7 @@ public class ResultTests
     [Test]
     public async Task StepRowTest()
     {
-        string path = $"Tests/{nameof(ResultTests)}/{nameof(StepRowTest)}.parquet";
+        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(StepRowTest)}.parquet";
         
         string guid = Guid.NewGuid().ToString();
         string parent = Guid.NewGuid().ToString();
@@ -73,9 +73,9 @@ public class ResultTests
             { "Group/Param", true },
         };
 
-        ParquetResult result = new ParquetResult(path);
-        result.AddStepRow(guid, parent, stepId, parameters);
-        result.Dispose();
+        ParquetFile file = new ParquetFile(path);
+        file.AddStepRow(guid, parent, stepId, parameters);
+        file.Dispose();
         
         Assert.True(System.IO.File.Exists(path));
 
@@ -96,7 +96,7 @@ public class ResultTests
     [Test]
     public async Task PlanRowTest()
     {
-        string path = $"Tests/{nameof(ResultTests)}/{nameof(PlanRowTest)}.parquet";
+        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(PlanRowTest)}.parquet";
         
         string guid = Guid.NewGuid().ToString();
 
@@ -108,9 +108,9 @@ public class ResultTests
             { "Group/Param", true },
         };
 
-        ParquetResult result = new ParquetResult(path);
-        result.AddPlanRow(guid, parameters);
-        result.Dispose();
+        ParquetFile file = new ParquetFile(path);
+        file.AddPlanRow(guid, parameters);
+        file.Dispose();
         
         Assert.True(System.IO.File.Exists(path));
 
@@ -134,7 +134,7 @@ public class ResultTests
     [Test]
     public async Task FileMerging()
     {
-        string path = $"Tests/{nameof(ResultTests)}/{nameof(FileMerging)}.parquet";
+        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(FileMerging)}.parquet";
         
         string guid1 = Guid.NewGuid().ToString();
         string guid2 = Guid.NewGuid().ToString();
@@ -148,14 +148,14 @@ public class ResultTests
             { "Param2", "Param2" },
         };
 
-        ParquetResult result = new ParquetResult(path, new Options()
+        ParquetFile file = new ParquetFile(path, new Options()
         {
             RowGroupSize = 1,
         });
-        result.AddPlanRow(guid1, parameters1);
-        result.AddPlanRow(guid2, parameters2);
-        Assert.That(result.FragmentCount, Is.EqualTo(2));
-        result.Dispose();
+        file.AddPlanRow(guid1, parameters1);
+        file.AddPlanRow(guid2, parameters2);
+        Assert.That(file.FragmentCount, Is.EqualTo(2));
+        file.Dispose();
         
         Assert.True(System.IO.File.Exists(path));
 

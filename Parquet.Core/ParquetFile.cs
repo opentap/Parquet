@@ -5,12 +5,19 @@ using System.Linq;
 
 namespace OpenTap.Plugins.Parquet.Core;
 
-public sealed class ParquetResult : IDisposable
+/// A parquet result is a single parquet file.
+/// It will write and manage multiple fragments and make sure they are being managed properly to ensure schema compliance.
+public sealed class ParquetFile : IDisposable
 {
     private readonly Options? _options;
     private readonly List<Fragment> _fragments;
 
-    public ParquetResult(string path, Options? options = null)
+    /// <summary>
+    /// Create a new parquet result.
+    /// </summary>
+    /// <param name="path">The final path to the file once it is done being written.</param>
+    /// <param name="options">Options for the underlying parquet writer.</param>
+    public ParquetFile(string path, Options? options = null)
     {
         _options = options;
         Path = path;
@@ -18,6 +25,9 @@ public sealed class ParquetResult : IDisposable
         AddFragment();
     }
     
+    /// <summary>
+    /// Gets the path of the parquet file.
+    /// </summary>
     public string Path { get; }
 
     internal int FragmentCount => _fragments.Count;
@@ -36,6 +46,15 @@ public sealed class ParquetResult : IDisposable
         _fragments.Add(new (CurrentFragment, path));
     }
     
+    /// <summary>
+    /// Add a result row to the file.
+    /// </summary>
+    /// <param name="resultName">The name of the results.</param>
+    /// <param name="runId">The id of the step run that created the results.</param>
+    /// <param name="parentId">The id of the parent to the step run that created the results.</param>
+    /// <param name="stepId">The id of the test step within the test plan.</param>
+    /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
+    /// <param name="results">A dictionary containing the results of the step, to look them up by their column names.</param>
     public void AddResultRow(string resultName, string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters, Dictionary<string, Array> results)
     {
         parameters = parameters.ToDictionary(kvp => "Step/" + kvp.Key, kvp => kvp.Value);
@@ -50,7 +69,13 @@ public sealed class ParquetResult : IDisposable
         }
     }
     
-
+    /// <summary>
+    /// Add a step row without results to the file.
+    /// </summary>
+    /// <param name="runId">The id of the step run.</param>
+    /// <param name="parentId">The id of the parent to the step run.</param>
+    /// <param name="stepId">The id of the test step within the test plan.</param>
+    /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
     public void AddStepRow(string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters)
     {
         parameters = parameters.ToDictionary(kvp => "Step/" + kvp.Key, kvp => kvp.Value);
@@ -63,6 +88,11 @@ public sealed class ParquetResult : IDisposable
         }
     }
 
+    /// <summary>
+    /// Add a plan row to the file.
+    /// </summary>
+    /// <param name="planId">The id of the plan run.</param>
+    /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
     public void AddPlanRow(string planId, Dictionary<string, IConvertible> parameters)
     {
         parameters = parameters.ToDictionary(kvp => "Plan/" + kvp.Key, kvp => kvp.Value);
@@ -75,7 +105,7 @@ public sealed class ParquetResult : IDisposable
     
     public void Dispose()
     {
-        if (!CurrentFragment.CanEdit)
+        if (!CurrentFragment.CanEdit && _fragments.Count > 1)
         {
             AddFragment();
         }
