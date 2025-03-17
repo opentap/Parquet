@@ -113,6 +113,7 @@ public sealed class ParquetFile : IDisposable
         foreach (Fragment fragment in _fragments.TakeWhile(f => f != CurrentFragment))
         {
             CurrentFragment.MergeWith(fragment);
+            File.Delete(fragment.Path);
         }
         CurrentFragment.Dispose();
         
