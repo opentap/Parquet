@@ -97,5 +97,6 @@ jobs:
           name: nuget-package
       - name: Publish NuGet
         run: |
+          cp Parquet.Core/bin/Release/OpenTap.Plugins.Parquet.Core.*.nupkg OpenTap.Plugins.Parquet.Core.nupkg
           dotnet nuget add source --username frederikja --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/opentap/index.json"
-          dotnet nuget push OpenTAP.Parquet.Core.nupkg --source github
+          dotnet nuget push OpenTap.Plugins.Parquet.Core.nupkg --source github
