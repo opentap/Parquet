@@ -30,13 +30,6 @@ jobs:
         run: git fetch --force --tags origin
       - name: Build
         run: dotnet build -c Release
-      - name: Upload binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: tap-package
-          retention-days: 7
-          path: |
-            Parquet/bin/Release/net9.0/*.TapPackage
       - name: Upload OpenTAP package
         uses: actions/upload-artifact@v4
         with:
