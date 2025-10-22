@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestPlan type="OpenTap.TestPlan">
+  <Steps>
+    <TestStep type="OpenTap.Plugins.BasicSteps.RepeatStep" Id="3dc77e4b-b77a-4c9e-8bc4-0b4e9208a5fd" OpenTap.Visibility="Visible">
+      <Action>Fixed_Count</Action>
+      <TargetStep />
+      <TargetVerdict>Fail</TargetVerdict>
+      <Count Parameter="Parameters \ Count">1</Count>
+      <Retry>false</Retry>
+      <ClearVerdict>false</ClearVerdict>
+      <MaxCount>
+        <Value>3</Value>
+        <IsEnabled>false</IsEnabled>
+      </MaxCount>
+      <Name Metadata="Step Name">Repeat</Name>
+      <ChildTestSteps>
+        <TestStep type="OpenTap.Plugins.Demo.ResultsAndTiming.SineResultsStep" Id="90a54036-6019-46fe-ae59-950d233169da">
+          <AmplitudePp>20</AmplitudePp>
+          <Mean>20</Mean>
+          <NoiseEnabled>true</NoiseEnabled>
+          <NoiseStdDev>1</NoiseStdDev>
+          <LimitCheckingEnabled>false</LimitCheckingEnabled>
+          <LowerLimit>5</LowerLimit>
+          <UpperLimit>30</UpperLimit>
+          <ResultName>SineResults</ResultName>
+          <PointCount Parameter="Parameters \ Results \ Point Count">1000</PointCount>
+          <Name Metadata="Step Name">Sine Result</Name>
+          <ChildTestSteps />
+        </TestStep>
+      </ChildTestSteps>
+    </TestStep>
+  </Steps>
+  <Parameters_x0020__x005C__x0020_Count>1</Parameters_x0020__x005C__x0020_Count>
+  <Parameters_x0020__x005C__x0020_Results_x0020__x005C__x0020_Point_x0020_Count>1000</Parameters_x0020__x005C__x0020_Results_x0020__x005C__x0020_Point_x0020_Count>
+  <Package.Dependencies>
+    <Package Name="OpenTAP" Version="^9.27.1+49587562" />
+  </Package.Dependencies>
+</TestPlan>

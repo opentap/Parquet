@@ -1,37 +1,63 @@
 ﻿using NUnit.Framework;
-using Parquet.Extensions;
+using OpenTap;
+using OpenTap.Plugins.BasicSteps;
+using OpenTap.Plugins.Parquet.Core.Extensions;
+using OpenTap.Plugins.Parquet.Extensions;
 
-namespace Parquet.Tests
+namespace Parquet.Tests;
+
+internal class ExtensionTests
 {
-    internal class ExtensionTests
+    [TestCase(typeof(int), typeof(int?))]
+    [TestCase(typeof(int?), typeof(int?))]
+    [TestCase(typeof(string), typeof(string))]
+    public void TypeAsNullableTest(Type type, Type expected)
     {
-        [Test]
-        public void ToHashsetTest()
-        {
-            var arr = new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0 };
-            var expected = Enumerable.ToHashSet(arr);
-            var actual = LinqExtensions.ToHashSet(arr);
-            Assert.That(actual, Is.EqualTo(expected));
-        }
+        var actual = type.AsNullable();
+        Assert.That(actual, Is.EqualTo(expected));
+    }
 
-        [TestCase(typeof(int), typeof(int?))]
-        [TestCase(typeof(int?), typeof(int?))]
-        [TestCase(typeof(string), typeof(string))]
-        public void TypeAsNullableTest(Type type, Type expected)
+    [Test]
+    public void ResultTableGetResultsTest()
+    {
+        var table = new ResultTable("test", new ResultColumn[]
         {
-            var actual = type.AsNullable();
-            Assert.That(actual, Is.EqualTo(expected));
-        }
+            new ResultColumn("Col1", Enumerable.Range(0, 10).ToArray()),
+            new ResultColumn("Col2", Enumerable.Repeat(0, 10).ToArray()),
+            new ResultColumn("Col3", Enumerable.Range(0, 10).Reverse().ToArray()),
+        });
 
-        [TestCase(1, 1)]
-        [TestCase(100, 0)]
-        [TestCase(100, 90, 90)]
-        public void DictionaryGetValueOrDefaultTest(int key, int expected, int def = default)
+        var results = table.GetResults();
+            
+        Assert.That(results["Col1"], Is.EquivalentTo(Enumerable.Range(0, 10)));
+        Assert.That(results["Col2"], Is.EquivalentTo(Enumerable.Repeat(0, 10).ToArray()));
+        Assert.That(results["Col3"], Is.EquivalentTo(Enumerable.Range(0, 10).Reverse().ToArray()));
+    }
+
+    [Test]
+    public void TestRunGetParametersTest()
+    {
+        var testStepRun = new TestStepRun(new DelayStep(), Guid.NewGuid(), new[]
         {
-            var dict = new Dictionary<int, int>()
-                { {1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}, {6, 6}, {7, 7}, {8, 8}, {9, 9}, {0, 0} };
-            int actual = dict.GetValueOrDefault(key, def);
-            Assert.That(actual, Is.EqualTo(expected));
-        }
+            new ResultParameter("Group1", "Param1", 0),
+            new ResultParameter("Group1", "Param2", 3.14),
+            new ResultParameter("Group1", "Param3", 3.14f),
+            new ResultParameter("Group1", "Param4", "value"),
+            new ResultParameter("Group2", "Param1", 0),
+            new ResultParameter("Group2", "Param2", 3.14),
+            new ResultParameter("Group2", "Param3", 3.14f),
+            new ResultParameter("Group2", "Param4", "value"),
+        });
+
+        var parameters = testStepRun.GetParameters();
+            
+        Assert.That(parameters["Group1/Param1"], Is.EqualTo(0));
+        Assert.That(parameters["Group1/Param2"], Is.EqualTo(3.14));
+        Assert.That(parameters["Group1/Param3"], Is.EqualTo(3.14f));
+        Assert.That(parameters["Group1/Param4"], Is.EqualTo("value"));
+        Assert.That(parameters["Group2/Param1"], Is.EqualTo(0));
+        Assert.That(parameters["Group2/Param2"], Is.EqualTo(3.14));
+        Assert.That(parameters["Group2/Param3"], Is.EqualTo(3.14f));
+        Assert.That(parameters["Group2/Param4"], Is.EqualTo("value"));
     }
 }
