@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <TargetName>OpenTap.Plugins.Parquet.Core</TargetName>
+        <RootNamespace>OpenTap.Plugins.Parquet.Core</RootNamespace>
+        <Nullable>enable</Nullable>
+        <LangVersion>preview</LangVersion>
+        <AssemblyVersion>$(GitVersion)</AssemblyVersion>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Parquet.Net" Version="5.1.0" />
+        <PackageReference Include="Snappier" Version="1.2.0" />
+        <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+            <_Parameter1>Parquet.Tests</_Parameter1>
+        </AssemblyAttribute>
+    </ItemGroup>
+</Project>

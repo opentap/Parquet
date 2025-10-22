@@ -1,82 +1,154 @@
 ﻿using NUnit.Framework;
 using OpenTap;
+using OpenTap.Plugins.BasicSteps;
 using OpenTap.Plugins.Parquet;
-using Parquet.Data;
 
-namespace Parquet.Tests
+namespace Parquet.Tests;
+
+public class ResultStep(string resultName, ResultColumn[] columns, ResultParameter[] parameters)
+    : TestStep
 {
-
-    internal class ResultListenerTests
+    public override void Run()
     {
-        [Test]
-        public void OutputParquetFilesTest()
+        foreach (ResultParameter resultParameter in parameters)
         {
-            TestPlan plan = new TestPlan();
-            ParquetResultListener resultListener = new ParquetResultListener();
-            resultListener.DeleteOnPublish = false;
-            resultListener.FilePath.Text = $"Results/Tests/{nameof(OutputParquetFilesTest)}.parquet";
-            var result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
-            result.WaitForResults();
-            var artifacts = result.Artifacts.ToList();
-            Assert.That(artifacts.Count, Is.EqualTo(1));
-            Assert.That(artifacts[0], Is.EqualTo($"{nameof(OutputParquetFilesTest)}.parquet"));
-
-            Assert.That(System.IO.File.Exists($"Results/Tests/{nameof(OutputParquetFilesTest)}.parquet"), Is.True);
+            Results.AddParameter(resultParameter);
         }
 
-        [Test]
-        public void DoesntMergeWithOldFiles()
+        Results.Publish(new ResultTable(resultName, columns));
+    }
+}
+
+internal class ResultListenerTests
+{
+    [Test]
+    public void OutputParquetFilesTest()
+    {
+        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(OutputParquetFilesTest)}.parquet";
+        
+        TestPlan plan = new TestPlan();
+        ParquetResultListener resultListener = new ParquetResultListener()
         {
-            TestPlan plan = new TestPlan();
-            ParquetResultListener resultListener = new ParquetResultListener();
-            resultListener.DeleteOnPublish = false;
-            resultListener.FilePath.Text = $"Results/Tests/{nameof(DoesntMergeWithOldFiles)}.parquet";
-            var result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
-            result.WaitForResults();
-            Assert.That(System.IO.File.Exists($"Results/Tests/{nameof(DoesntMergeWithOldFiles)}.parquet"), Is.True);
+            FilePath = { Text = path },
+        };
+        var result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
+        result.WaitForResults();
+        var artifacts = result.Artifacts.ToList();
+        Assert.That(artifacts.Count, Is.EqualTo(1));
+        Assert.That(artifacts[0], Is.EqualTo($"{nameof(OutputParquetFilesTest)}.parquet"));
 
-            result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
-            result.WaitForResults();
-            Assert.That(System.IO.File.Exists($"Results/Tests/{nameof(DoesntMergeWithOldFiles)}.parquet"), Is.True);
+        Assert.That(System.IO.File.Exists(path), Is.True);
+    }
 
-            using Stream stream = System.IO.File.OpenRead($"Results/Tests/{nameof(DoesntMergeWithOldFiles)}.parquet");
-            using ParquetReader reader = new ParquetReader(stream);
-            Assert.That(reader.RowGroupCount, Is.EqualTo(1));
-            var rowgroup = reader.ReadEntireRowGroup(0);
-            Assert.That(rowgroup.Any(c => c.Data.GetValue(0)?.Equals(result.Id.ToString()) ?? false), Is.True);
-        }
-
-        [Test]
-        public void TestColumnsExist()
+    [Test]
+    public async Task OutputResultsTest()
+    {
+        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(OutputResultsTest)}.parquet";
+        
+        TestPlan plan = new TestPlan();
+        ResultStep step = new ResultStep("Test",
+            [new ResultColumn("Column1", Enumerable.Range(0, 50).ToArray())],
+            []
+        );
+        plan.ChildTestSteps.Add(step);
+        ParquetResultListener resultListener = new ParquetResultListener()
         {
-            var plan = new TestPlan();
-            var step = new MyTestStep();
-            plan.Steps.Add(step);
-            var resultListener = new ParquetResultListener();
-            resultListener.DeleteOnPublish = false;
-            resultListener.FilePath.Text = $"Results/Tests/{nameof(TestColumnsExist)}.parquet";
+            FilePath = { Text = path },
+        };
+        var result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
+        result.WaitForResults();
 
-            var result = plan.Execute(new ResultListener[] {resultListener}, Array.Empty<ResultParameter>());
-            result.WaitForResults();
-            Assert.That(System.IO.File.Exists($"Results/Tests/{nameof(TestColumnsExist)}.parquet"), Is.True);
+        Assert.That(System.IO.File.Exists(path), Is.True);
+        
+        var reader = await Reader.CreateAsync(path);
 
-            using Stream stream = System.IO.File.OpenRead($"Results/Tests/{nameof(TestColumnsExist)}.parquet");
-            using ParquetReader reader = new ParquetReader(stream);
-            Assert.That(reader.RowGroupCount, Is.EqualTo(2));
-            Assert.That(reader.Schema.Fields, Does.Contain(new DataField("ResultName", typeof(string))));
-            Assert.That(reader.Schema.Fields, Does.Contain(new DataField("Guid", typeof(string))));
-            Assert.That(reader.Schema.Fields, Does.Contain(new DataField("Parent", typeof(string))));
-            Assert.That(reader.Schema.Fields, Does.Contain(new DataField("StepId", typeof(string))));
-            var rowGroup = reader.ReadEntireRowGroup(0);
-            Assert.That(rowGroup[3].Data, Does.Contain(step.Id.ToString()));
-        }
-
-        internal class MyTestStep : TestStep
+        Assert.That(reader.Count, Is.EqualTo(51));
+        for (int i = 0; i < 50; i++)
         {
-            public override void Run()
-            {
-
-            }
+            Assert.That(reader.ReadCell(i+1, "StepId"), Is.EqualTo(step.Id.ToString()));
+            Assert.That(reader.ReadCell(i+1, "Result/Column1"), Is.EqualTo(i));
         }
+    }
+
+    [Test]
+    public async Task OutputResultsAndParametersTest()
+    {
+        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(OutputResultsAndParametersTest)}.parquet";
+        
+        TestPlan plan = new TestPlan();
+        ResultStep step = new ResultStep("Test",
+            [new ResultColumn("Column1", Enumerable.Range(0, 50).ToArray())],
+            [new ResultParameter("Group", "Parameter", 5)]
+        );
+        plan.ChildTestSteps.Add(step);
+        ParquetResultListener resultListener = new ParquetResultListener()
+        {
+            FilePath = { Text = path },
+        };
+        var result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
+        result.WaitForResults();
+
+        Assert.That(System.IO.File.Exists(path), Is.True);
+        
+        var reader = await Reader.CreateAsync(path);
+
+        Assert.That(reader.Count, Is.EqualTo(51));
+        var fields = reader.Schema.DataFields
+            .Select((f, index) => (f.Name, index)).ToDictionary(t => t.Name, t => t.index);
+        for (int i = 0; i < 50; i++)
+        {
+            Assert.That(reader.ReadCell(i+1, "StepId"), Is.EqualTo(step.Id.ToString()));
+            Assert.That(reader.ReadCell(i+1, "Result/Column1"), Is.EqualTo(i));
+            Assert.That(reader.ReadCell(i+1, "Step/Group/Parameter"), Is.EqualTo(5));
+        }
+    }
+    
+    [Test]
+    public async Task StepWithoutResultsTest()
+    {
+        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(StepWithoutResultsTest)}.parquet";
+        
+        TestPlan plan = new TestPlan();
+        var step = new DelayStep();
+        plan.ChildTestSteps.Add(step);
+        ParquetResultListener resultListener = new ParquetResultListener()
+        {
+            FilePath = { Text = path },
+        };
+        var result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
+        result.WaitForResults();
+
+        Assert.That(System.IO.File.Exists(path), Is.True);
+        
+        var reader = await Reader.CreateAsync(path);
+
+        Assert.That(reader.Count, Is.EqualTo(2));
+        Assert.That(reader.Schema.DataFields.Select(f => f.Name), Does.Contain("Step/Duration"));
+        Assert.That(reader.Schema.DataFields.Any(f => f.Name.StartsWith("Result/")), Is.EqualTo(false));
+    }
+
+    [Test]
+    public async Task OverridesOldFiles()
+    {
+        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(OverridesOldFiles)}.parquet";
+        
+        TestPlan plan = new TestPlan();
+        ParquetResultListener resultListener = new ParquetResultListener()
+        {
+            FilePath = { Text = path },
+        };
+        var result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
+        result.WaitForResults();
+        Assert.That(System.IO.File.Exists(path), Is.True);
+            
+        result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
+        result.WaitForResults();
+        Assert.That(System.IO.File.Exists(path), Is.True);
+
+        var reader = await Reader.CreateAsync(path);
+
+        Assert.That(reader.Count, Is.EqualTo(1));
+        object?[] values = [result.Id.ToString()];
+        Assert.That(reader.ReadRow(0), Is.SupersetOf(values));
     }
 }
