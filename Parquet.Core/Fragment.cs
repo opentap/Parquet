@@ -125,7 +125,7 @@ internal sealed class Fragment : IDisposable
         Dictionary<string, Array> arrayValues)
     {
         if (!FitsInCache(values.Select(kvp => (kvp.Key, kvp.Value.GetType()))) ||
-            !FitsInCache(arrayValues.Select(kvp => (kvp.Key, kvp.Value.GetType().GetElementType()))))
+            !FitsInCache(arrayValues.Select(kvp => (kvp.Key, kvp.Value.GetType().GetElementType()!))))
         {
             return false;
         }
@@ -142,7 +142,7 @@ internal sealed class Fragment : IDisposable
                 {
                     AddToColumn(column, valueArr, startIndex, count);
                 }
-                else if (values.TryGetValue(column.Name, out IConvertible value))
+                else if (values.TryGetValue(column.Name, out IConvertible? value))
                 {
                     AddToColumn(column, value, count);
                 }

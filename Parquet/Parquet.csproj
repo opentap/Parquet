@@ -24,7 +24,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="OpenTAP" Version="9.29.1" />
-    <PackageReference Include="Parquet.Net" Version="5.1.0" />
+    <PackageReference Include="Parquet.Net" Version="5.2.0" />
     <PackageReference Include="Snappier" Version="1.2.0" />
     <ProjectReference Include="..\Parquet.Core\Parquet.Core.csproj" />
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
