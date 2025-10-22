@@ -1,11 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <TargetName>OpenTap.Plugins.Parquet</TargetName>
     <RootNamespace>OpenTap.Plugins.Parquet</RootNamespace>
     <DebugWith>Editor</DebugWith>
     <Nullable>enable</Nullable>
-    <LangVersion>preview</LangVersion>
     <AssemblyVersion>$(GitVersion)</AssemblyVersion>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
@@ -20,11 +19,11 @@
     <CreateOpenTapPackage>true</CreateOpenTapPackage>
   </PropertyGroup>
   <ItemGroup Condition="'$(DebugWith)' == 'Editor' and '$(Configuration)' == 'Debug'">
-    <OpenTapPackageReference Include="Editor" version="beta" />
-    <OpenTapPackageReference Include="Demonstration" version="beta" />
+    <OpenTapPackageReference Include="Editor" />
+    <OpenTapPackageReference Include="Demonstration" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="OpenTAP" Version="9.27.1" />
+    <PackageReference Include="OpenTAP" Version="9.29.1" />
     <PackageReference Include="Parquet.Net" Version="5.1.0" />
     <PackageReference Include="Snappier" Version="1.2.0" />
     <ProjectReference Include="..\Parquet.Core\Parquet.Core.csproj" />
