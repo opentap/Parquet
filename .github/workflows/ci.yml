@@ -64,6 +64,7 @@ jobs:
       # This step depends on the build step
       needs:
         - Build
+        - UnitTests
       steps:
         # Download the tap-package artifact from the Build step
         - name: Download TapPackage Arfifact
