@@ -1,12 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
   <PropertyGroup>
-    <TargetFrameworkIdentifier></TargetFrameworkIdentifier>
-    <TargetFrameworkVersion></TargetFrameworkVersion>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <TargetName>OpenTap.Plugins.Parquet</TargetName>
-    <DebugWith>Editor CE</DebugWith>
+    <RootNamespace>OpenTap.Plugins.Parquet</RootNamespace>
+    <DebugWith>Editor</DebugWith>
     <Nullable>enable</Nullable>
-    <LangVersion>latest</LangVersion>
     <AssemblyVersion>$(GitVersion)</AssemblyVersion>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
@@ -14,17 +12,38 @@
   <PropertyGroup>
     <OpenTapPackageDefinitionPath>package.xml</OpenTapPackageDefinitionPath>
     <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <UserSecretsId>97804243-626e-465a-a20e-793fd0c92089</UserSecretsId>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <CreateOpenTapPackage>true</CreateOpenTapPackage>
   </PropertyGroup>
-  <ItemGroup Condition="'$(DebugWith)' == 'Editor CE' and '$(Configuration)' == 'Debug'">
-    <OpenTapPackageReference Include="Editor CE" version="beta" />
-    <OpenTapPackageReference Include="Demonstration" version="beta" />
+  <ItemGroup Condition="'$(DebugWith)' == 'Editor' and '$(Configuration)' == 'Debug'">
+    <OpenTapPackageReference Include="Editor" />
+    <OpenTapPackageReference Include="Demonstration" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="OpenTAP" Version="9.22.2" />
-    <PackageReference Include="Parquet.Net" Version="3.10.0" />
+    <PackageReference Include="OpenTAP" Version="9.29.1" />
+    <PackageReference Include="Parquet.Net" Version="5.2.0" />
+    <PackageReference Include="Snappier" Version="1.2.0" />
+    <ProjectReference Include="..\Parquet.Core\Parquet.Core.csproj" />
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+        <_Parameter1>Parquet.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+  
+  <!-- 
+       Parquet depends on newer versions of these assemblies. This will force OpenTAP to not load the older versions. 
+       24/02-2025
+  -->
+  <ItemGroup>
+    <ContentWithTargetPath Include=".OpenTapIgnore" >
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Dependencies/Microsoft.Bcl.AsyncInterfaces.1.0.0.0/%(Filename)%(Extension)</TargetPath>
+    </ContentWithTargetPath>
+    <ContentWithTargetPath Include=".OpenTapIgnore" >
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Dependencies/System.Threading.Tasks.Extensions.4.2.0.1/%(Filename)%(Extension)</TargetPath>
+    </ContentWithTargetPath>
   </ItemGroup>
 </Project>

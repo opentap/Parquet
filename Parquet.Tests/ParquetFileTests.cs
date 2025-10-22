@@ -1,132 +1,173 @@
-﻿using NUnit.Framework;
-using OpenTap;
+using NUnit.Framework;
 using OpenTap.Plugins.Parquet;
-using Parquet.Extensions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using OpenTap.Plugins.Parquet.Core;
 
-namespace Parquet.Tests
+namespace Parquet.Tests;
+
+public class ParquetFileTests
 {
-    internal class ParquetFileTests
+    [Test]
+    public async Task ResultRowTest()
     {
-        // TODO: Consider adding tests for writing results, step parameters and plan parameters. For now these tests should cover the tasks most prone to failing.
+        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(ResultRowTest)}.parquet";
+        
+        string resultName = "Test";
+        string guid = Guid.NewGuid().ToString();
+        string parent = Guid.NewGuid().ToString();
+        string stepId = Guid.NewGuid().ToString();
 
-        [Test]
-        public void CreatingFileTest()
+        Dictionary<string, IConvertible> parameters = new Dictionary<string, IConvertible>()
         {
-            var builder = new SchemaBuilder();
-            var schema = builder.ToSchema();
-
-            using var stream = new MemoryStream();
-            var stepGuid = Guid.NewGuid();
-            var parentGuid = Guid.NewGuid();
-            using (var file = new ParquetFile(schema, stream, new ParquetFileOptions() { CloseStream = false }))
-            {
-                file.AddRows(null, null, null, "ResultName", stepGuid, parentGuid);
-            }
-
-            using (var reader = new ParquetReader(stream))
-            {
-                Assert.That(reader.RowGroupCount, Is.EqualTo(1));
-                Assert.That(reader.Schema, Is.EqualTo(schema));
-                var columns = reader.ReadEntireRowGroup(0);
-
-                Assert.That(columns.First().Data.GetValue(0), Is.EqualTo("ResultName"));
-                Assert.That(columns.Skip(1).First().Data.GetValue(0)?.ToString(), Is.EqualTo(stepGuid.ToString()));
-                Assert.That(columns.Skip(2).First().Data.GetValue(0)?.ToString(), Is.EqualTo(parentGuid.ToString()));
-            }
-        }
-
-        [Test]
-        public void MergingFilesSameSizeTest()
+            { "Param1", "Param1" },
+            { "Param2", 2 },
+            { "Param3", 3.141 },
+            { "Group/Param", true },
+        };
+        Dictionary<string, Array> results = new Dictionary<string, Array>()
         {
-            var builder = new SchemaBuilder();
-            var schema = builder.ToSchema();
+            { "Value1", Enumerable.Repeat("test", 50).ToArray() },
+            { "Value2", Enumerable.Range(0, 50).ToArray() },
+            { "Value3", Enumerable.Repeat<string?>(null, 50).ToArray() }
+        };
 
-            using var stream1 = new MemoryStream();
-            var stepGuid1 = Guid.NewGuid();
-            var parentGuid1 = Guid.NewGuid();
-            using (var file = new ParquetFile(schema, stream1, new ParquetFileOptions() { CloseStream = false }))
-            {
-                file.AddRows(null, null, null, "ResultName", stepGuid1, parentGuid1);
-            }
+        ParquetFile file = new ParquetFile(path);
+        file.AddResultRow(resultName, guid, parent, stepId, parameters, results);
+        file.Dispose();
+        
+        Assert.True(System.IO.File.Exists(path));
 
-            using var stream2 = new MemoryStream();
-            var stepGuid2 = Guid.NewGuid();
-            var parentGuid2 = Guid.NewGuid();
-            using (var file = new ParquetFile(schema, stream2, new ParquetFileOptions() { CloseStream = false }))
-            {
-                file.AddRows(stream1);
-                file.AddRows(null, null, null, "ResultName2", stepGuid2, parentGuid2);
-            }
-
-            using (var reader = new ParquetReader(stream2))
-            {
-                Assert.That(reader.RowGroupCount, Is.EqualTo(2));
-                Assert.That(reader.Schema, Is.EqualTo(schema));
-                var columns1 = reader.ReadEntireRowGroup(0);
-                var columns2 = reader.ReadEntireRowGroup(1);
-
-                Assert.That(columns1.First().Data.GetValue(0), Is.EqualTo("ResultName"));
-                Assert.That(columns2.First().Data.GetValue(0), Is.EqualTo("ResultName2"));
-                Assert.That(columns1.Skip(1).First().Data.GetValue(0)?.ToString(), Is.EqualTo(stepGuid1.ToString()));
-                Assert.That(columns2.Skip(1).First().Data.GetValue(0)?.ToString(), Is.EqualTo(stepGuid2.ToString()));
-                Assert.That(columns1.Skip(2).First().Data.GetValue(0)?.ToString(), Is.EqualTo(parentGuid1.ToString()));
-                Assert.That(columns2.Skip(2).First().Data.GetValue(0)?.ToString(), Is.EqualTo(parentGuid2.ToString()));
-            }
-        }
-
-        [Test]
-        public void MergingFilesTest()
+        var reader = await Reader.CreateAsync(path);
+        string[] fields =
+        [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Step/Param1", "Step/Param2", "Step/Param3", "Step/Group/Param",
+            "Result/Value1", "Result/Value2", "Result/Value3"
+        ];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(50));
+        for (int i = 0; i < 50; i++)
         {
-            var builder = new SchemaBuilder();
-
-            var schema1 = builder.ToSchema();
-            using var stream1 = new MemoryStream();
-            var stepGuid1 = Guid.NewGuid();
-            var parentGuid1 = Guid.NewGuid();
-            using (var file = new ParquetFile(schema1, stream1, new ParquetFileOptions() { CloseStream = false }))
-            {
-                file.AddRows(null, null, null, "ResultName", stepGuid1, parentGuid1);
-            }
-
-            var table = new ResultTable(
-                "ResultName2",
-                new ResultColumn[]
-                {
-                    new ResultColumn("Hello", new []{"Test"}),
-                }
-            );
-            builder.AddResults(table);
-            var schema2 = builder.ToSchema();
-            using var stream2 = new MemoryStream();
-            var stepGuid2 = Guid.NewGuid();
-            var parentGuid2 = Guid.NewGuid();
-            using (var file = new ParquetFile(schema2, stream2, new ParquetFileOptions() { CloseStream = false }))
-            {
-                file.AddRows(stream1);
-                file.AddRows(null, null, table.GetResults(), "ResultName2", stepGuid2, parentGuid2);
-            }
-
-            using (var reader = new ParquetReader(stream2))
-            {
-                Assert.That(reader.RowGroupCount, Is.EqualTo(2));
-                Assert.That(reader.Schema, Is.EqualTo(schema2));
-                var columns1 = reader.ReadEntireRowGroup(0);
-                var columns2 = reader.ReadEntireRowGroup(1);
-
-                Assert.That(columns1.First().Data.GetValue(0), Is.EqualTo("ResultName"));
-                Assert.That(columns2.First().Data.GetValue(0), Is.EqualTo("ResultName2"));
-                Assert.That(columns1.Skip(1).First().Data.GetValue(0)?.ToString(), Is.EqualTo(stepGuid1.ToString()));
-                Assert.That(columns2.Skip(1).First().Data.GetValue(0)?.ToString(), Is.EqualTo(stepGuid2.ToString()));
-                Assert.That(columns1.Skip(2).First().Data.GetValue(0)?.ToString(), Is.EqualTo(parentGuid1.ToString()));
-                Assert.That(columns2.Skip(2).First().Data.GetValue(0)?.ToString(), Is.EqualTo(parentGuid2.ToString()));
-                Assert.That(columns1.Skip(3).First().Data.GetValue(0)?.ToString(), Is.EqualTo(null));
-                Assert.That(columns2.Skip(3).First().Data.GetValue(0)?.ToString(), Is.EqualTo("Test"));
-            }
+            object?[] values = [
+                resultName, guid, parent, stepId,
+                "Param1", 2, 3.141, true,
+                "test", i, null
+            ];
+            Assert.That(reader.ReadRow(i), Is.EquivalentTo(values));
         }
+    }
+    
+    [Test]
+    public async Task StepRowTest()
+    {
+        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(StepRowTest)}.parquet";
+        
+        string guid = Guid.NewGuid().ToString();
+        string parent = Guid.NewGuid().ToString();
+        string stepId = Guid.NewGuid().ToString();
+
+        Dictionary<string, IConvertible> parameters = new Dictionary<string, IConvertible>()
+        {
+            { "Param1", "Param1" },
+            { "Param2", 2 },
+            { "Param3", 3.141 },
+            { "Group/Param", true },
+        };
+
+        ParquetFile file = new ParquetFile(path);
+        file.AddStepRow(guid, parent, stepId, parameters);
+        file.Dispose();
+        
+        Assert.True(System.IO.File.Exists(path));
+
+        var reader = await Reader.CreateAsync(path);
+        string[] fields = [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Step/Param1", "Step/Param2", "Step/Param3", "Step/Group/Param"
+        ];
+        object?[] values = [
+            null, guid, parent, stepId,
+            "Param1", 2, 3.141, true
+        ];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(1));
+        Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
+    }
+    
+    [Test]
+    public async Task PlanRowTest()
+    {
+        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(PlanRowTest)}.parquet";
+        
+        string guid = Guid.NewGuid().ToString();
+
+        Dictionary<string, IConvertible> parameters = new Dictionary<string, IConvertible>()
+        {
+            { "Param1", "Param1" },
+            { "Param2", 2 },
+            { "Param3", 3.141 },
+            { "Group/Param", true },
+        };
+
+        ParquetFile file = new ParquetFile(path);
+        file.AddPlanRow(guid, parameters);
+        file.Dispose();
+        
+        Assert.True(System.IO.File.Exists(path));
+
+        var reader = await Reader.CreateAsync(path);
+        string[] fields = [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Plan/Param1", "Plan/Param2", "Plan/Param3", "Plan/Group/Param"
+        ];
+        object?[] values = [
+            null, guid, null, null,
+            "Param1", 2, 3.141, true
+        ];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(1));
+        Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
+    }
+    
+    // TODO: Insert tests with file merging.
+    // Test one: Can files be merged at all
+    // Test two: Do files keep their order when merged
+    [Test]
+    public async Task FileMerging()
+    {
+        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(FileMerging)}.parquet";
+        
+        string guid1 = Guid.NewGuid().ToString();
+        string guid2 = Guid.NewGuid().ToString();
+
+        Dictionary<string, IConvertible> parameters1 = new Dictionary<string, IConvertible>()
+        {
+            { "Param1", "Param1" },
+        };
+        Dictionary<string, IConvertible> parameters2 = new Dictionary<string, IConvertible>()
+        {
+            { "Param2", "Param2" },
+        };
+
+        ParquetFile file = new ParquetFile(path, new Options()
+        {
+            RowGroupSize = 1,
+        });
+        file.AddPlanRow(guid1, parameters1);
+        file.AddPlanRow(guid2, parameters2);
+        Assert.That(file.FragmentCount, Is.EqualTo(2));
+        file.Dispose();
+        
+        Assert.True(System.IO.File.Exists(path));
+
+        var reader = await Reader.CreateAsync(path);
+        string[] fields = [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Plan/Param1", "Plan/Param2"
+        ];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        object?[] values1 = [null, guid1, null, null, "Param1", null];
+        Assert.That(reader.ReadRow(0), Is.EquivalentTo(values1));
+        object?[] values2 = [null, guid2, null, null, null, "Param2"];
+        Assert.That(reader.ReadRow(1), Is.EquivalentTo(values2));
     }
 }
