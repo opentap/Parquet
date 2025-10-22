@@ -39,7 +39,7 @@ jobs:
           name: tap-package
           retention-days: 7
           path: |
-            Parquet/bin/Release/netstandard2.0/*.TapPackage
+            Parquet/bin/Release/net9.0/*.TapPackage
 
   ##############
   ### TEST    ##
