@@ -13,12 +13,29 @@ env:
 
 jobs:
 
+  GetVersion:
+    runs-on: ubuntu-latest
+    outputs:
+      ShortVersion: ${{ steps.gitversion.outputs.ShortVersion }}
+      LongVersion: ${{ steps.gitversion.outputs.LongVersion }}
+      GitVersion: ${{ steps.gitversion.outputs.GitVersion }}
+    steps:
+      - name: GitVersion
+        id: gitversion
+        uses: opentap/get-gitversion@main
+
   ##############
   ### BUILD   ##
   ##############
 
   Build:
     runs-on: ubuntu-latest
+    needs:
+      - GetVersion
+    env:
+      GitVersion: ${{needs.GetVersion.outputs.GitVersion}}
+      ShortVersion: ${{needs.GetVersion.outputs.ShortVersion}}
+      LongVersion: ${{needs.GetVersion.outputs.LongVersion}}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -99,6 +116,6 @@ jobs:
           name: nuget-package
       - name: Publish NuGet
         run: |
-          cp Parquet.Core.*.nupkg Parquet.Core.nupkg
+          cp Parquet.Core.*.nupkg OpenTap.Plugins.Parquet.Core.nupkg
           dotnet nuget add source --username frederikja --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/opentap/index.json"
-          dotnet nuget push Parquet.Core.nupkg --source github
+          dotnet nuget push OpenTap.Plugins.Parquet.Core.nupkg --source github
