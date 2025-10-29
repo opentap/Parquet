@@ -138,7 +138,7 @@ internal sealed class Fragment : IDisposable
 
             foreach (ColumnData column in _columns)
             {
-                if (arrayValues.TryGetValue(column.Name, out Array? valueArr) && column.Type.IsAssignableFrom(valueArr.GetType().GetElementType()))
+                if (arrayValues.TryGetValue(column.Name, out Array? valueArr))
                 {
                     AddToColumn(column, valueArr, startIndex, count);
                 }
@@ -183,19 +183,17 @@ internal sealed class Fragment : IDisposable
             return AddColumn(name, type) is not null;
         }
 
-        if (!typeCache.TryGetValue(type, out _))
+        if (typeCache.ContainsKey(type)) return true;
+        
+        if (typeCache.Count == 1)
         {
-            if (typeCache.Count == 1)
-            {
-                ColumnData data = typeCache.Values.First();
-                data.TrySetName(FindUniqueName(data.Name + "/" + data.Type.Name));
-            }
-            bool val = AddColumn(name, type, FindUniqueName(name + "/" + type.Name)) is not null;
-            UpdateMappings();
-            return val;
+            ColumnData data = typeCache.Values.First();
+            data.TrySetName(FindUniqueName(data.Name + "/" + data.Type.Name));
         }
+        bool val = AddColumn(name, type, FindUniqueName(name + "/" + type.Name)) is not null;
+        UpdateMappings();
+        return val;
 
-        return true;
     }
 
     private ColumnData? AddColumn(string name, Type type, string? uniqueName = null)
@@ -253,13 +251,18 @@ internal sealed class Fragment : IDisposable
         column.Count += count;
     }
 
-    private void AddToColumn(ColumnData column, Array values, int startIndex, int count){
-        values = values.Cast<object?>()
+    private void AddToColumn(ColumnData column, Array values, int startIndex, int count)
+    {
+        IEnumerable<object?> vals = values.Cast<object?>()
             .Skip(startIndex)
             .Concat(Enumerable.Repeat<object?>(null, Math.Max(count + startIndex - values.Length, 0)))
-            .Take(count)
-            .ToArray();
-        Array.Copy(values, 0, column.Data, column.Count, count);
+            .Take(count);
+        Type valueType = values.GetType().GetElementType()!;
+        if (!column.Type.IsAssignableFrom(valueType))
+        {
+            vals = ShouldConvertToString(valueType) ? vals.Select(o => o?.ToString()) : vals.Select<object?, object?>(_ => null);
+        }
+        Array.Copy(vals.ToArray(), 0, column.Data, column.Count, count);
         column.Count += count;
     }
 
@@ -357,11 +360,13 @@ internal sealed class Fragment : IDisposable
     
     private static Type GetParquetType(Type type)
     {
-        if (type.IsEnum)
+        if (ShouldConvertToString(type))
         {
             return typeof(string);
         }
 
         return type;
     }
+
+    private static bool ShouldConvertToString(Type type) => type.IsEnum || type == typeof(object);
 }

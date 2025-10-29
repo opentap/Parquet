@@ -9,7 +9,7 @@ public class ParquetFileTests
     [Test]
     public async Task ResultRowTest()
     {
-        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(ResultRowTest)}.parquet";
+        string path = Path.GetTempFileName();
         
         string resultName = "Test";
         string guid = Guid.NewGuid().ToString();
@@ -59,7 +59,7 @@ public class ParquetFileTests
     [Test]
     public async Task StepRowTest()
     {
-        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(StepRowTest)}.parquet";
+        string path = Path.GetTempFileName();
         
         string guid = Guid.NewGuid().ToString();
         string parent = Guid.NewGuid().ToString();
@@ -96,7 +96,7 @@ public class ParquetFileTests
     [Test]
     public async Task PlanRowTest()
     {
-        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(PlanRowTest)}.parquet";
+        string path = Path.GetTempFileName();
         
         string guid = Guid.NewGuid().ToString();
 
@@ -134,7 +134,7 @@ public class ParquetFileTests
     [Test]
     public async Task FileMerging()
     {
-        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(FileMerging)}.parquet";
+        string path = Path.GetTempFileName();
         
         string guid1 = Guid.NewGuid().ToString();
         string guid2 = Guid.NewGuid().ToString();

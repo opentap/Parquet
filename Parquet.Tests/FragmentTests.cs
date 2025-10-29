@@ -12,7 +12,7 @@ public class FragmentTests
     [Test]
     public async Task CreateEmptyFileTest()
     {
-        string path = $"Tests/{nameof(FragmentTests)}/{nameof(CreateEmptyFileTest)}.parquet";
+        string path = Path.GetTempFileName();
 
         var frag = new Fragment(path, new Options());
         frag.Dispose();
@@ -28,7 +28,7 @@ public class FragmentTests
     [Test]
     public async Task EmptyRowTest()
     {
-        string path = $"Tests/{nameof(FragmentTests)}/{nameof(EmptyRowTest)}.parquet";
+        string path = Path.GetTempFileName();
 
         var frag = new Fragment(path, new Options());
         frag.AddRows(new Dictionary<string, IConvertible>(), new Dictionary<string, Array>());
@@ -48,7 +48,7 @@ public class FragmentTests
     [Test]
     public async Task PopulateDefaultColumnsTest()
     {
-        string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateDefaultColumnsTest)}.parquet";
+        string path = Path.GetTempFileName();
 
         string resultName = "test";
         string guid = Guid.NewGuid().ToString();
@@ -79,15 +79,15 @@ public class FragmentTests
         }
     }
 
-    [TestCase(0, "Hello", "World")]
-    [TestCase(1, "This/Is/A/Group", "Some value")]
-    [TestCase(2, "Values/int32", -5432)]
-    [TestCase(3, "Values/uint32", 5432u)]
-    [TestCase(4, "Values/float", 3.141f)]
-    [TestCase(5, "Values/double", 6.282)]
-    public async Task PopulateCustomColumnsTest(int caseId, string name, IConvertible value)
+    [TestCase("Hello", "World")]
+    [TestCase("This/Is/A/Group", "Some value")]
+    [TestCase("Values/int32", -5432)]
+    [TestCase("Values/uint32", 5432u)]
+    [TestCase("Values/float", 3.141f)]
+    [TestCase("Values/double", 6.282)]
+    public async Task PopulateCustomColumnsTest(string name, IConvertible value)
     {
-        string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateCustomColumnsTest)}-{caseId}.parquet";
+        string path = Path.GetTempFileName();
         
         var frag = new Fragment(path, new Options());
         frag.AddRows(new Dictionary<string, IConvertible>()
@@ -106,28 +106,41 @@ public class FragmentTests
         Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
     }
 
-    [Test]
-    public async Task PopulateCustomArrayColumnsTest()
+    private enum MyEnum
     {
-        string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateCustomColumnsTest)}.parquet";
+        A, B, C
+    }
+    
+    public static IEnumerable<object[]> PopulateDefaultColumnsSource()
+    {
+        yield return [false, "Custom/Int/Column", Enumerable.Range(0, 50).ToArray()];
+        yield return [false, "Custom/Float/Column", Enumerable.Range(0, 100).Select(i => i + 0.123f).ToArray()];
+        yield return [true, "Enum/Column", Enumerable.Range(0, 10).Select(i => (MyEnum)(i % 3)).ToArray()];
+        yield return [true, "Do/Objects/Work", Enumerable.Range(0, 100).Select(i => new object()).ToArray()];
+    }
+
+    [TestCaseSource(nameof(PopulateDefaultColumnsSource))]
+    public async Task PopulateCustomArrayColumnsTest(bool convertToString, string name, Array expected)
+    {
+        string path = Path.GetTempFileName();
 
         var frag = new Fragment(path, new Options());
         frag.AddRows(new Dictionary<string, IConvertible>(), new Dictionary<string, Array>()
         {
-            { "Custom/Int/Column", Enumerable.Range(0, 50).ToArray() },
-            { "Custom/Float/Column", Enumerable.Range(0, 50).Select(i => i + 0.123f).ToArray() },
+            { name, expected },
         });
         frag.Dispose();
 
         Assert.True(System.IO.File.Exists(path));
 
         var reader = await Reader.CreateAsync(path);
-        string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Custom/Int/Column", "Custom/Float/Column"];
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId", name];
         Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
-        Assert.That(reader.Count, Is.EqualTo(50));
-        for (int i = 0; i < 50; i++)
+        Assert.That(reader.Count, Is.EqualTo(expected.Length));
+        for (int i = 0; i < expected.Length; i++)
         {
-            object?[] values = [null, null, null, null, i, i + 0.123f];
+            object? expectedValue = expected.GetValue(i);
+            object?[] values = [null, null, null, null, convertToString ? expectedValue?.ToString() : expectedValue];
             Assert.That(reader.ReadRow(i), Is.EquivalentTo(values));
         }
     }
@@ -140,7 +153,7 @@ public class FragmentTests
     [TestCase(150)]
     public async Task MultipleResultsKeepOrder(int rowGroupSize)
     {
-        string path = $"Tests/{nameof(FragmentTests)}/{nameof(MultipleResultsKeepOrder)}-{rowGroupSize}.parquet";
+        string path = Path.GetTempFileName();
 
         var guid1 = Guid.NewGuid().ToString();
         var guid2 = Guid.NewGuid().ToString();
@@ -184,7 +197,7 @@ public class FragmentTests
     [TestCase(75)]
     public async Task ArraysOfDifferentSizeTest(int rowGroupSize)
     {
-        string path = $"Tests/{nameof(FragmentTests)}/{nameof(ArraysOfDifferentSizeTest)}-{rowGroupSize}.parquet";
+        string path = Path.GetTempFileName();
 
         var results = new Dictionary<string, Array>()
         {
@@ -209,13 +222,13 @@ public class FragmentTests
         }
     }
 
-    [TestCase(1, new [] { 0, 1, 2 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Int32", "Custom/Single")]
-    [TestCase(2, new [] { 0, 1, 2 }, new [] {0.1, 0.2, 0.3 },"Custom/Int32", "Custom/Double")]
-    [TestCase(3, new [] { 0.1, 1.2, 2.3 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Double", "Custom/Single")]
-    [TestCase(4, new [] { "String", "Test", "Hello" }, new [] {0.1f, 0.2f, 0.3f },"Custom/String", "Custom/Single")]
-    public async Task ArrayColumnTypeCollisionTest(int testCase, Array arr1, Array arr2, string name1, string name2)
+    [TestCase(new [] { 0, 1, 2 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Int32", "Custom/Single")]
+    [TestCase(new [] { 0, 1, 2 }, new [] {0.1, 0.2, 0.3 },"Custom/Int32", "Custom/Double")]
+    [TestCase(new [] { 0.1, 1.2, 2.3 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Double", "Custom/Single")]
+    [TestCase(new [] { "String", "Test", "Hello" }, new [] {0.1f, 0.2f, 0.3f },"Custom/String", "Custom/Single")]
+    public async Task ArrayColumnTypeCollisionTest(Array arr1, Array arr2, string name1, string name2)
     {
-        string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateCustomColumnsTest)}-{testCase}.parquet";
+        string path = Path.GetTempFileName();
         
         var guid1 = Guid.NewGuid().ToString();
         var guid2 = Guid.NewGuid().ToString();
