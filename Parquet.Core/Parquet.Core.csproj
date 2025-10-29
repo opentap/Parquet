@@ -6,6 +6,7 @@
         <RootNamespace>OpenTap.Plugins.Parquet.Core</RootNamespace>
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
+        <AssemblyVersion>$(ShortVersion)</AssemblyVersion>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <LongVersion Condition="'$(LongVersion)' == ''">0.1.0</LongVersion>
         <Company>Keysight Technologies, Inc.</Company>
