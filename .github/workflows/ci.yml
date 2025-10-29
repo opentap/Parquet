@@ -30,6 +30,8 @@ jobs:
         run: git fetch --force --tags origin
       - name: Build
         run: dotnet build -c Release
+      - name: Pack
+        run: dotnet pack -c Release ./Parquet.Core/Parquet.Core.csproj -o .
       - name: Upload OpenTAP package
         uses: actions/upload-artifact@v4
         with:
@@ -43,7 +45,7 @@ jobs:
           name: nuget-package
           retention-days: 7
           path: |
-            Parquet.Core/bin/Release/OpenTap.Plugins.Parquet.Core.*.nupkg
+            OpenTap.Plugins.Parquet.Core.*.nupkg
 
   ##############
   ### TEST    ##
