@@ -14,7 +14,7 @@ env:
 jobs:
 
   GetVersion:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       ShortVersion: ${{ steps.gitversion.outputs.ShortVersion }}
       LongVersion: ${{ steps.gitversion.outputs.LongVersion }}

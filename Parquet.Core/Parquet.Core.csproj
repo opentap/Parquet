@@ -7,7 +7,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-        <GitVersion Condition="'$(GitVersion)' ==  ''">0.1.0</GitVersion>
+        <GitVersion Condition="'$(GitVersion)' == ''">0.1.0</GitVersion>
         <Company>Keysight Technologies, Inc.</Company>
         <Authors>OpenTAP Team</Authors>
         <Version>$(GitVersion)</Version>
