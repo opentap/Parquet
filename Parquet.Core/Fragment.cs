@@ -52,6 +52,11 @@ internal sealed class Fragment : IDisposable
             UniqueName = name;
             return true;
         }
+
+        public override string ToString()
+        {
+            return UniqueName;
+        }
     }
 
     private readonly Options _options;
@@ -239,9 +244,17 @@ internal sealed class Fragment : IDisposable
         return str;
     }
 
-    private void AddToColumn(ColumnData column, IConvertible? value, int count){
-        if (column.ParquetType == typeof(string) && value?.GetType() != typeof(string)){
-            value = value?.ToString(CultureInfo.InvariantCulture);
+    private void AddToColumn(ColumnData column, IConvertible? value, int count) {
+        if (column.ParquetType != value?.GetType())
+        {
+            if (column.ParquetType == typeof(string) && column.Name == column.UniqueName)
+            {
+                value = value?.ToString(CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                value = null;
+            }
         }
 
         for (int i = 0; i < count; i++)
