@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: GitVersion
         id: gitversion
-        uses: opentap/get-gitversion@main
+        uses: opentap/get-gitversion@v1.1
 
   ##############
   ### BUILD   ##
