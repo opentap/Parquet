@@ -7,15 +7,14 @@
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    </PropertyGroup>
-    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <GitVersion Condition="'$(GitVersion)' ==  ''">0.1.0</GitVersion>
         <Company>Keysight Technologies, Inc.</Company>
-        <AssemblyVersion>$(GitVersion)</AssemblyVersion>
-        <FileVersion>$(GitVersion)</FileVersion>
+        <Authors>OpenTAP Team</Authors>
         <Version>$(GitVersion)</Version>
-        <NuspecFile>$(MSBuildProjectName).nuspec</NuspecFile>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <RepositoryUrl>https://github.com/opentap/Parquet</RepositoryUrl>
+        <PackageDescription>Parquet is a fast and efficient storage format similar to CSV but with more structured column based data.</PackageDescription>
+        <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="Parquet.Net" Version="5.2.0" />
