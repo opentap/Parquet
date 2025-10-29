@@ -106,28 +106,41 @@ public class FragmentTests
         Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
     }
 
-    [Test]
-    public async Task PopulateCustomArrayColumnsTest()
+    private enum MyEnum
     {
-        string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateCustomColumnsTest)}.parquet";
+        A, B, C
+    }
+    
+    public static IEnumerable<object[]> PopulateDefaultColumnsSource()
+    {
+        yield return [0, false, "Custom/Int/Column", Enumerable.Range(0, 50).ToArray()];
+        yield return [1, false, "Custom/Float/Column", Enumerable.Range(0, 100).Select(i => i + 0.123f).ToArray()];
+        yield return [2, true, "Enum/Column", Enumerable.Range(0, 10).Select(i => (MyEnum)(i % 3)).ToArray()];
+        yield return [3, true, "Do/Objects/Work", Enumerable.Range(0, 100).Select(i => new object()).ToArray()];
+    }
+
+    [TestCaseSource(nameof(PopulateDefaultColumnsSource))]
+    public async Task PopulateCustomArrayColumnsTest(int caseId, bool convertToString, string name, Array expected)
+    {
+        string path = $"Tests/{nameof(FragmentTests)}/{nameof(PopulateCustomColumnsTest)}-{caseId}.parquet";
 
         var frag = new Fragment(path, new Options());
         frag.AddRows(new Dictionary<string, IConvertible>(), new Dictionary<string, Array>()
         {
-            { "Custom/Int/Column", Enumerable.Range(0, 50).ToArray() },
-            { "Custom/Float/Column", Enumerable.Range(0, 50).Select(i => i + 0.123f).ToArray() },
+            { name, expected },
         });
         frag.Dispose();
 
         Assert.True(System.IO.File.Exists(path));
 
         var reader = await Reader.CreateAsync(path);
-        string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Custom/Int/Column", "Custom/Float/Column"];
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId", name];
         Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
-        Assert.That(reader.Count, Is.EqualTo(50));
-        for (int i = 0; i < 50; i++)
+        Assert.That(reader.Count, Is.EqualTo(expected.Length));
+        for (int i = 0; i < expected.Length; i++)
         {
-            object?[] values = [null, null, null, null, i, i + 0.123f];
+            object? expectedValue = expected.GetValue(i);
+            object?[] values = [null, null, null, null, convertToString ? expectedValue?.ToString() : expectedValue];
             Assert.That(reader.ReadRow(i), Is.EquivalentTo(values));
         }
     }
