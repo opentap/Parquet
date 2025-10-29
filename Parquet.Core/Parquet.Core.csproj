@@ -6,8 +6,16 @@
         <RootNamespace>OpenTap.Plugins.Parquet.Core</RootNamespace>
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
-        <AssemblyVersion>$(GitVersion)</AssemblyVersion>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <Company>Keysight Technologies, Inc.</Company>
+        <AssemblyVersion>$(GitVersion)</AssemblyVersion>
+        <FileVersion>$(GitVersion)</FileVersion>
+        <Version>$(GitVersion)</Version>
+        <NuspecFile>$(MSBuildProjectName).nuspec</NuspecFile>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="Parquet.Net" Version="5.2.0" />

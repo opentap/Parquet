@@ -28,18 +28,22 @@ jobs:
         if: github.ref_type == 'tag'
         # Fixes an issue with actions/checkout@{v2,v3,v4} - see https://github.com/actions/checkout/issues/290
         run: git fetch --force --tags origin
-      # Build your project
       - name: Build
         run: dotnet build -c Release
-      # Upload the package so it can be downloaded from GitHub, 
-      # and consumed by other steps in this workflow
-      - name: Upload binaries
+      - name: Upload OpenTAP package
         uses: actions/upload-artifact@v4
         with:
           name: tap-package
           retention-days: 7
           path: |
             Parquet/bin/Release/net9.0/*.TapPackage
+      - name: Upload NuGet package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          retention-days: 7
+          path: |
+            Parquet.Core/bin/Release/OpenTap.Plugins.Parquet.Core.*.nupkg
 
   ##############
   ### TEST    ##
@@ -57,27 +61,42 @@ jobs:
   ### PUBLISH ##
   ##############
 
-  Publish:
+  Publish_OpenTap:
       # Only publish on the main branch or if the commit is tagged.
       if: github.ref == 'refs/heads/main' || contains(github.ref, 'refs/heads/release') || contains(github.ref, 'refs/tags/v')
       runs-on: ubuntu-latest
       # This step depends on the build step
       needs:
         - Build
+        - UnitTests
       steps:
-        # Download the tap-package artifact from the Build step
-        - name: Download TapPackage Arfifact
+        - name: Download TapPackage Artifact
           uses: actions/download-artifact@v4
           with:
             name: tap-package
             path: .
-        # Setup OpenTAP with the PackagePublish package in order to publish the newly created package
         - name: Setup OpenTAP
           uses: opentap/setup-opentap@v1.0
           with:
             version: 9.29.1
-            packages: "Repository Client:beta"
-        # Publish the package. This requires the package management key to be configured in the 'PUBLIC_REPO_PASS' environment variable.
+            packages: "Repository Client"
         - name: Publish Packages
           working-directory: ./
           run: tap repo upload --repository http://packages.opentap.io --token ${{ secrets.PUBLIC_REPO_PASS }} Parquet*.TapPackage
+  
+  Publish_NuGet:
+    if: github.ref == 'refs/heads/main' || contains(github.ref, 'refs/heads/release') || contains(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs:
+      - Build
+      - UnitTests
+    steps:
+      - name: Download NuGet Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+      - name: Publish NuGet
+        run: |
+          cp OpenTap.Plugins.Parquet.Core.*.nupkg OpenTap.Plugins.Parquet.Core.nupkg
+          dotnet nuget add source --username frederikja --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/opentap/index.json"
+          dotnet nuget push OpenTap.Plugins.Parquet.Core.nupkg --source github

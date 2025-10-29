@@ -17,5 +17,8 @@ $(GitVersion) - Gets the version from Git in the recommended format Major.Minor.
 		<File Path="Packages/Parquet/OpenTap.Plugins.Parquet.dll" SourcePath="OpenTap.Plugins.Parquet.dll">
 			<SetAssemblyInfo Attributes="Version"/>
 		</File>
+		<File Path="Packages/Parquet/OpenTap.Plugins.Parquet.Core.dll" SourcePath="OpenTap.Plugins.Parquet.Core.dll">
+			<SetAssemblyInfo Attributes="Version"/>
+		</File>
 	</Files>
 </Package>
