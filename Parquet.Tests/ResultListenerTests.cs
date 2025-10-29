@@ -24,7 +24,7 @@ internal class ResultListenerTests
     [Test]
     public void OutputParquetFilesTest()
     {
-        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(OutputParquetFilesTest)}.parquet";
+        string path = Path.GetTempFileName();
         
         TestPlan plan = new TestPlan();
         ParquetResultListener resultListener = new ParquetResultListener()
@@ -35,7 +35,7 @@ internal class ResultListenerTests
         result.WaitForResults();
         var artifacts = result.Artifacts.ToList();
         Assert.That(artifacts.Count, Is.EqualTo(1));
-        Assert.That(artifacts[0], Is.EqualTo($"{nameof(OutputParquetFilesTest)}.parquet"));
+        Assert.That(artifacts[0], Is.EqualTo(Path.GetFileName(path)));
 
         Assert.That(System.IO.File.Exists(path), Is.True);
     }
@@ -43,7 +43,7 @@ internal class ResultListenerTests
     [Test]
     public async Task OutputResultsTest()
     {
-        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(OutputResultsTest)}.parquet";
+        string path = Path.GetTempFileName();
         
         TestPlan plan = new TestPlan();
         ResultStep step = new ResultStep("Test",
@@ -73,7 +73,7 @@ internal class ResultListenerTests
     [Test]
     public async Task OutputResultsAndParametersTest()
     {
-        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(OutputResultsAndParametersTest)}.parquet";
+        string path = Path.GetTempFileName();
         
         TestPlan plan = new TestPlan();
         ResultStep step = new ResultStep("Test",
@@ -106,7 +106,7 @@ internal class ResultListenerTests
     [Test]
     public async Task StepWithoutResultsTest()
     {
-        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(StepWithoutResultsTest)}.parquet";
+        string path = Path.GetTempFileName();
         
         TestPlan plan = new TestPlan();
         var step = new DelayStep();
@@ -130,7 +130,7 @@ internal class ResultListenerTests
     [Test]
     public async Task OverridesOldFiles()
     {
-        string path = $"Tests/{nameof(ResultListenerTests)}/{nameof(OverridesOldFiles)}.parquet";
+        string path = Path.GetTempFileName();
         
         TestPlan plan = new TestPlan();
         ParquetResultListener resultListener = new ParquetResultListener()

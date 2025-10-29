@@ -257,9 +257,10 @@ internal sealed class Fragment : IDisposable
             .Skip(startIndex)
             .Concat(Enumerable.Repeat<object?>(null, Math.Max(count + startIndex - values.Length, 0)))
             .Take(count);
-        if (!column.Type.IsAssignableFrom(values.GetType().GetElementType()))
+        Type valueType = values.GetType().GetElementType()!;
+        if (!column.Type.IsAssignableFrom(valueType))
         {
-            vals = vals.Select(o => o?.ToString());
+            vals = ShouldConvertToString(valueType) ? vals.Select(o => o?.ToString()) : vals.Select<object?, object?>(_ => null);
         }
         Array.Copy(vals.ToArray(), 0, column.Data, column.Count, count);
         column.Count += count;
@@ -359,11 +360,13 @@ internal sealed class Fragment : IDisposable
     
     private static Type GetParquetType(Type type)
     {
-        if (type.IsEnum || type == typeof(object))
+        if (ShouldConvertToString(type))
         {
             return typeof(string);
         }
 
         return type;
     }
+
+    private static bool ShouldConvertToString(Type type) => type.IsEnum || type == typeof(object);
 }
