@@ -5,7 +5,7 @@
     <RootNamespace>OpenTap.Plugins.Parquet</RootNamespace>
     <DebugWith>Editor</DebugWith>
     <Nullable>enable</Nullable>
-    <AssemblyVersion>$(GitVersion)</AssemblyVersion>
+    <AssemblyVersion>$(LongVersion)</AssemblyVersion>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
