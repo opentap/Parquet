@@ -106,6 +106,35 @@ public class FragmentTests
         Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
     }
 
+    [TestCase("Column", "0.1f", 0.1f)]
+    [TestCase("Column", 0.1f, "0.1f")]
+    public async Task ColumnTypeCollisionTest(string name, IConvertible value1, IConvertible value2)
+    {
+        string path = Path.GetTempFileName();
+
+        var frag = new Fragment(path, new Options());
+        frag.AddRows(new Dictionary<string, IConvertible>()
+        {
+            { name, value1 },
+        },  new Dictionary<string, Array>());
+        frag.AddRows(new Dictionary<string, IConvertible>()
+        {
+            { name, value2 },
+        },  new Dictionary<string, Array>());
+        frag.Dispose();
+
+        Assert.True(System.IO.File.Exists(path));
+
+        var reader = await Reader.CreateAsync(path);
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId", name + "/" + value1.GetType().Name, name + "/" + value2.GetType().Name];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(2));
+        object?[] values1 = [null, null, null, null, value1, null];
+        Assert.That(reader.ReadRow(0), Is.EquivalentTo(values1));
+        object?[] values2 = [null, null, null, null, null, value2];
+        Assert.That(reader.ReadRow(1), Is.EquivalentTo(values2));
+    }
+
     private enum MyEnum
     {
         A, B, C
