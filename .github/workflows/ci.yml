@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: GitVersion
         id: gitversion
-        uses: opentap/get-gitversion@v1.1
+        uses: opentap/get-gitversion@main
 
   ##############
   ### BUILD   ##
@@ -45,8 +45,6 @@ jobs:
         if: github.ref_type == 'tag'
         # Fixes an issue with actions/checkout@{v2,v3,v4} - see https://github.com/actions/checkout/issues/290
         run: git fetch --force --tags origin
-      - name: Write version
-        run: echo $GitVersion
       - name: Build
         run: dotnet build -c Release
       - name: Pack
