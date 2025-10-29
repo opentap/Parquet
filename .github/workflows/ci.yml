@@ -13,12 +13,27 @@ env:
 
 jobs:
 
+  GetVersion:
+    runs-on: ubuntu-latest
+    outputs:
+      ShortVersion: ${{ steps.gitversion.outputs.ShortVersion }}
+      LongVersion: ${{ steps.gitversion.outputs.LongVersion }}
+      GitVersion: ${{ steps.gitversion.outputs.GitVersion }}
+    steps:
+      - name: GitVersion
+        id: gitversion
+        uses: opentap/get-gitversion@v1.0
+
   ##############
   ### BUILD   ##
   ##############
 
   Build:
     runs-on: ubuntu-latest
+    needs:
+      - GetVersion
+    env:
+      GitVersion: ${{needs.GetVersion.outputs.GitVersion}}
     steps:
       - uses: actions/checkout@v4
         with:
