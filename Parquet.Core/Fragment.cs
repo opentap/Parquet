@@ -193,7 +193,7 @@ internal sealed class Fragment : IDisposable
         if (typeCache.Count == 1)
         {
             ColumnData data = typeCache.Values.First();
-            data.TrySetName(FindUniqueName(data.Name + "/" + data.Type.Name));
+            data.TrySetName(FindUniqueName(data.Name + "/" + data.Type.GetNullableType().Name));
         }
         bool val = AddColumn(name, type, FindUniqueName(name + "/" + type.Name)) is not null;
         UpdateMappings();
