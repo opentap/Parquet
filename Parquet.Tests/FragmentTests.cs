@@ -251,6 +251,13 @@ public class FragmentTests
         }
     }
 
+    public static IEnumerable<object[]> ArrayColumnTypeCollisionSource()
+    {
+        yield return [new float?[] { 0.1f, 0.2f, 0.3f, null }, new string[] { "1", "2" },
+            "Custom/Single", "Custom/String"];
+    }
+
+    [TestCaseSource(nameof(ArrayColumnTypeCollisionSource))]
     [TestCase(new [] { 0, 1, 2 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Int32", "Custom/Single")]
     [TestCase(new [] { 0, 1, 2 }, new [] {0.1, 0.2, 0.3 },"Custom/Int32", "Custom/Double")]
     [TestCase(new [] { 0.1, 1.2, 2.3 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Double", "Custom/Single")]
