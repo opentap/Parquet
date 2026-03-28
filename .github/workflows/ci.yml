@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: GitVersion
         id: gitversion
-        uses: opentap/get-gitversion@1ecd47ca05a3124a5f2479e0bfd0665f93359b2a # v1.1
+        uses: opentap/get-gitversion@main
 
   ##############
   ### BUILD   ##
@@ -95,7 +95,7 @@ jobs:
             name: tap-package
             path: .
         - name: Setup OpenTAP
-          uses: opentap/setup-opentap@d178a37a089bf73bd99da5b68a00b3d96e6d4517 # v1.0
+          uses: opentap/setup-opentap@main
           with:
             version: 9.29.1
             packages: "Repository Client"
