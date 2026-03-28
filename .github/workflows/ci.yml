@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: GitVersion
         id: gitversion
-        uses: opentap/get-gitversion@main
+        uses: opentap/get-gitversion@1ecd47ca05a3124a5f2479e0bfd0665f93359b2a # v1.1
 
   ##############
   ### BUILD   ##
@@ -37,7 +37,7 @@ jobs:
       ShortVersion: ${{needs.GetVersion.outputs.ShortVersion}}
       LongVersion: ${{needs.GetVersion.outputs.LongVersion}}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
       - name: Fix tags
@@ -50,14 +50,14 @@ jobs:
       - name: Pack
         run: dotnet pack -c Release ./Parquet.Core/Parquet.Core.csproj -o .
       - name: Upload OpenTAP package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: tap-package
           retention-days: 7
           path: |
             Parquet/bin/Release/net9.0/*.TapPackage
       - name: Upload NuGet package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: nuget-package
           retention-days: 7
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Build
         run: dotnet test -c Release
 
@@ -90,12 +90,12 @@ jobs:
         - UnitTests
       steps:
         - name: Download TapPackage Artifact
-          uses: actions/download-artifact@v4
+          uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
           with:
             name: tap-package
             path: .
         - name: Setup OpenTAP
-          uses: opentap/setup-opentap@v1.0
+          uses: opentap/setup-opentap@d178a37a089bf73bd99da5b68a00b3d96e6d4517 # v1.0
           with:
             version: 9.29.1
             packages: "Repository Client"
@@ -111,7 +111,7 @@ jobs:
       - UnitTests
     steps:
       - name: Download NuGet Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: nuget-package
       - name: Publish NuGet
