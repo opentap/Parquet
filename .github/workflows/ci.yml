@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: GitVersion
         id: gitversion
-        uses: opentap/get-gitversion@e785d4cb7ba83c1ca846e20e0925e8067c6fb337 #fix/pin-action-shas (pending v1.2)
+        uses: opentap/get-gitversion@dd1b64ee828bcd62c3b53b5aabca464fe41123fa #fix/pin-action-shas (pending v1.2)
 
   ##############
   ### BUILD   ##
@@ -95,7 +95,7 @@ jobs:
             name: tap-package
             path: .
         - name: Setup OpenTAP
-          uses: opentap/setup-opentap@c60c3386267d6c8c39d5ad8bd76a219c20f12f33 #fix/upgrade-node-to-node24 (pending v1.1)
+          uses: opentap/setup-opentap@2e83d3a5e985a85061d009ac858817c422ee014f #fix/upgrade-node-to-node24 (pending v1.1)
           with:
             version: 9.29.1
             packages: "Repository Client"
