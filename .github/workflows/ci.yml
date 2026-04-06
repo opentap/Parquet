@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: GitVersion
         id: gitversion
-        uses: opentap/get-gitversion@1ecd47ca05a3124a5f2479e0bfd0665f93359b2a #v1.1
+        uses: opentap/get-gitversion@38a48d0e35cb69a16e68312183507a704cdc35be #fix/pin-action-shas (pending v1.2)
 
   ##############
   ### BUILD   ##
