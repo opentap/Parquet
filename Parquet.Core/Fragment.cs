@@ -143,11 +143,11 @@ internal sealed class Fragment : IDisposable
 
             foreach (ColumnData column in _columns)
             {
-                if (arrayValues.TryGetValue(column.Name, out Array? valueArr))
+                if (arrayValues.TryGetValue(column.Name, out Array? valueArr) && valueArr.GetType().GetElementType() == column.Type)
                 {
                     AddToColumn(column, valueArr, startIndex, count);
                 }
-                else if (values.TryGetValue(column.Name, out IConvertible? value))
+                else if (values.TryGetValue(column.Name, out IConvertible? value) &&  value.GetType() == column.Type)
                 {
                     AddToColumn(column, value, count);
                 }
