@@ -250,7 +250,7 @@ internal sealed class Fragment : IDisposable
             }
         }
     
-        _uniqueColumnNames.Add(name);
+        _uniqueColumnNames.Add(str);
     
         return str;
     }
