@@ -261,6 +261,7 @@ public class FragmentTests
     [TestCase(new [] { 0, 1, 2 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Int32", "Custom/Single")]
     [TestCase(new [] { 0, 1, 2 }, new [] {0.1, 0.2, 0.3 },"Custom/Int32", "Custom/Double")]
     [TestCase(new [] { 0.1, 1.2, 2.3 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Double", "Custom/Single")]
+    [TestCase(new [] { 0.1, 1.2, 2.3 }, new object[] { 0.1, 1.2, 2.3 },"Custom/Double", "Custom/String")]
     [TestCase(new [] { "String", "Test", "Hello" }, new [] {0.1f, 0.2f, 0.3f },"Custom/String", "Custom/Single")]
     public async Task ArrayColumnTypeCollisionTest(Array arr1, Array arr2, string name1, string name2)
     {
@@ -299,7 +300,7 @@ public class FragmentTests
         }
         for (int i = 0; i < arr2.Length; i++)
         {
-            object?[] values = [null, guid2, null, null, null, arr2.GetValue(i)];
+            object?[] values = Fragment.ShouldConvertToString(arr2.GetType().GetElementType()!) ?  [null, guid2, null, null, null, arr2.GetValue(i)?.ToString()] : [null, guid2, null, null, null, arr2.GetValue(i)];
             Assert.That(reader.ReadRow(i + arr1.Length), Is.EquivalentTo(values));
         }
 
