@@ -59,13 +59,13 @@ internal class ExtensionTests
 
         var parameters = testStepRun.GetParameters();
             
-        Assert.That(parameters["Group1/Param1"], Is.EqualTo(0));
-        Assert.That(parameters["Group1/Param2"], Is.EqualTo(3.14));
-        Assert.That(parameters["Group1/Param3"], Is.EqualTo(3.14f));
-        Assert.That(parameters["Group1/Param4"], Is.EqualTo("value"));
-        Assert.That(parameters["Group2/Param1"], Is.EqualTo(0));
-        Assert.That(parameters["Group2/Param2"], Is.EqualTo(3.14));
-        Assert.That(parameters["Group2/Param3"], Is.EqualTo(3.14f));
-        Assert.That(parameters["Group2/Param4"], Is.EqualTo("value"));
+        Assert.That(parameters["Group1/Param1"].Single(), Is.EqualTo(0));
+        Assert.That(parameters["Group1/Param2"].Single(), Is.EqualTo(3.14));
+        Assert.That(parameters["Group1/Param3"].Single(), Is.EqualTo(3.14f));
+        Assert.That(parameters["Group1/Param4"].Single(), Is.EqualTo("value"));
+        Assert.That(parameters["Group2/Param1"].Single(), Is.EqualTo(0));
+        Assert.That(parameters["Group2/Param2"].Single(), Is.EqualTo(3.14));
+        Assert.That(parameters["Group2/Param3"].Single(), Is.EqualTo(3.14f));
+        Assert.That(parameters["Group2/Param4"].Single(), Is.EqualTo("value"));
     }
 }

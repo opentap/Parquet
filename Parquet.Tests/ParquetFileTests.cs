@@ -74,8 +74,11 @@ public class ParquetFileTests
             ("b", (Array)Enumerable.Range(100, 50).ToArray()),
         }.ToLookup(t => t.Item1, t => t.Item2);
 
+        ILookup<string, IConvertible> parameters = Array.Empty<(string, IConvertible)>()
+            .ToLookup(t => t.Item1, t => t.Item2);
+
         ParquetFile file = new ParquetFile(path);
-        file.AddResultRow(resultName, guid, parent, stepId, new Dictionary<string, IConvertible>(), results);
+        file.AddResultRow(resultName, guid, parent, stepId, parameters, results);
         file.Dispose();
 
         Assert.True(System.IO.File.Exists(path));
@@ -98,6 +101,90 @@ public class ParquetFileTests
         var mappings = new Dictionary<string, string>()
         {
             ["Result/a/1"] = "Result/a",
+        };
+        Assert.That(reader.CustomMetadata["Mappings"], Is.EqualTo(JsonSerializer.Serialize(mappings)));
+    }
+
+    [Test]
+    public async Task DuplicateParameterNameLookupTest()
+    {
+        string path = Path.GetTempFileName();
+
+        string resultName = "Test";
+        string guid = Guid.NewGuid().ToString();
+        string parent = Guid.NewGuid().ToString();
+        string stepId = Guid.NewGuid().ToString();
+
+        // Two parameters share the same logical name "a" at the same time. Passing them as a lookup
+        // lets ParquetFile disambiguate the columns and register the name mapping automatically.
+        ILookup<string, IConvertible> parameters = new (string, IConvertible)[]
+        {
+            ("a", "first"),
+            ("a", "second"),
+            ("b", 42),
+        }.ToLookup(t => t.Item1, t => t.Item2);
+        ILookup<string, Array> results = Array.Empty<(string, Array)>()
+            .ToLookup(t => t.Item1, t => t.Item2);
+
+        ParquetFile file = new ParquetFile(path);
+        file.AddResultRow(resultName, guid, parent, stepId, parameters, results);
+        file.Dispose();
+
+        Assert.True(System.IO.File.Exists(path));
+
+        var reader = await Reader.CreateAsync(path);
+        string[] fields =
+        [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Step/a", "Step/a/1", "Step/b"
+        ];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(1));
+        object?[] values = [resultName, guid, parent, stepId, "first", "second", 42];
+        Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
+
+        // The unique column keeps its name; the duplicate is suffixed and mapped back to "Step/a".
+        var mappings = new Dictionary<string, string>()
+        {
+            ["Step/a/1"] = "Step/a",
+        };
+        Assert.That(reader.CustomMetadata["Mappings"], Is.EqualTo(JsonSerializer.Serialize(mappings)));
+    }
+
+    [Test]
+    public async Task DuplicatePlanParameterNameLookupTest()
+    {
+        string path = Path.GetTempFileName();
+
+        string guid = Guid.NewGuid().ToString();
+
+        ILookup<string, IConvertible> parameters = new (string, IConvertible)[]
+        {
+            ("a", "first"),
+            ("a", "second"),
+            ("b", 42),
+        }.ToLookup(t => t.Item1, t => t.Item2);
+
+        ParquetFile file = new ParquetFile(path);
+        file.AddPlanRow(guid, parameters);
+        file.Dispose();
+
+        Assert.True(System.IO.File.Exists(path));
+
+        var reader = await Reader.CreateAsync(path);
+        string[] fields =
+        [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Plan/a", "Plan/a/1", "Plan/b"
+        ];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(1));
+        object?[] values = [null, guid, null, null, "first", "second", 42];
+        Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
+
+        var mappings = new Dictionary<string, string>()
+        {
+            ["Plan/a/1"] = "Plan/a",
         };
         Assert.That(reader.CustomMetadata["Mappings"], Is.EqualTo(JsonSerializer.Serialize(mappings)));
     }

@@ -72,8 +72,8 @@ public sealed class ParquetFile : IDisposable
     }
 
     /// <summary>
-    /// Add a result row to the file where several result arrays may share the same name.
-    /// Columns sharing a name are written as separate parquet columns (the first keeps the name,
+    /// Add a result row to the file where several parameters or result arrays may share the same name.
+    /// Entries sharing a name are written as separate parquet columns (the first keeps the name,
     /// subsequent ones are suffixed with "/1", "/2", ...) and a name mapping is registered so that
     /// every one of them maps back to the shared display name in the file's metadata.
     /// </summary>
@@ -81,32 +81,46 @@ public sealed class ParquetFile : IDisposable
     /// <param name="runId">The id of the step run that created the results.</param>
     /// <param name="parentId">The id of the parent to the step run that created the results.</param>
     /// <param name="stepId">The id of the test step within the test plan.</param>
-    /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
+    /// <param name="parameters">A lookup of parameters grouped by name. Multiple parameters may share a name.</param>
     /// <param name="results">A lookup of result arrays grouped by column name. Multiple arrays may share a name.</param>
-    public void AddResultRow(string resultName, string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters, ILookup<string, Array> results)
+    public void AddResultRow(string resultName, string runId, string parentId, string stepId, ILookup<string, IConvertible> parameters, ILookup<string, Array> results)
     {
-        Dictionary<string, Array> flattened = new();
         List<KeyValuePair<string, string>> mappings = new();
-        foreach (IGrouping<string, Array> group in results)
+        Dictionary<string, IConvertible> flatParameters = Disambiguate(parameters, "Step/", mappings);
+        Dictionary<string, Array> flatResults = Disambiguate(results, ResultPrefix, mappings);
+
+        AddResultRow(resultName, runId, parentId, stepId, flatParameters, flatResults);
+        foreach (KeyValuePair<string, string> mapping in mappings)
+        {
+            AddNameMapping(mapping.Key, mapping.Value);
+        }
+    }
+
+    /// <summary>
+    /// Flatten a lookup whose keys may repeat into a dictionary with unique keys.
+    /// The first value keeps the original key; subsequent values are suffixed with "/1", "/2", ...
+    /// For every suffixed key a name mapping (using <paramref name="prefix"/>) back to the original
+    /// key is added to <paramref name="mappings"/> so callers can register it on the file.
+    /// </summary>
+    private static Dictionary<string, T> Disambiguate<T>(ILookup<string, T> values, string prefix, List<KeyValuePair<string, string>> mappings)
+    {
+        Dictionary<string, T> flattened = new();
+        foreach (IGrouping<string, T> group in values)
         {
             int index = 0;
-            foreach (Array data in group)
+            foreach (T data in group)
             {
                 string key = index == 0 ? group.Key : $"{group.Key}/{index}";
                 flattened[key] = data;
                 if (index > 0)
                 {
-                    mappings.Add(new KeyValuePair<string, string>(ResultPrefix + key, ResultPrefix + group.Key));
+                    mappings.Add(new KeyValuePair<string, string>(prefix + key, prefix + group.Key));
                 }
                 index += 1;
             }
         }
 
-        AddResultRow(resultName, runId, parentId, stepId, parameters, flattened);
-        foreach (KeyValuePair<string, string> mapping in mappings)
-        {
-            AddNameMapping(mapping.Key, mapping.Value);
-        }
+        return flattened;
     }
 
     /// <summary>
@@ -121,6 +135,28 @@ public sealed class ParquetFile : IDisposable
     public void AddNameMapping(string uniqueName, string name)
     {
         CurrentFragment.AddNameMapping(uniqueName, name);
+    }
+
+    /// <summary>
+    /// Add a step row without results to the file where several parameters may share the same name.
+    /// Parameters sharing a name are written as separate parquet columns (the first keeps the name,
+    /// subsequent ones are suffixed with "/1", "/2", ...) and a name mapping is registered so that
+    /// every one of them maps back to the shared display name in the file's metadata.
+    /// </summary>
+    /// <param name="runId">The id of the step run.</param>
+    /// <param name="parentId">The id of the parent to the step run.</param>
+    /// <param name="stepId">The id of the test step within the test plan.</param>
+    /// <param name="parameters">A lookup of parameters grouped by name. Multiple parameters may share a name.</param>
+    public void AddStepRow(string runId, string parentId, string stepId, ILookup<string, IConvertible> parameters)
+    {
+        List<KeyValuePair<string, string>> mappings = new();
+        Dictionary<string, IConvertible> flatParameters = Disambiguate(parameters, "Step/", mappings);
+
+        AddStepRow(runId, parentId, stepId, flatParameters);
+        foreach (KeyValuePair<string, string> mapping in mappings)
+        {
+            AddNameMapping(mapping.Key, mapping.Value);
+        }
     }
 
     /// <summary>
@@ -139,6 +175,26 @@ public sealed class ParquetFile : IDisposable
         while (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
         {
             AddFragment();
+        }
+    }
+
+    /// <summary>
+    /// Add a plan row to the file where several parameters may share the same name.
+    /// Parameters sharing a name are written as separate parquet columns (the first keeps the name,
+    /// subsequent ones are suffixed with "/1", "/2", ...) and a name mapping is registered so that
+    /// every one of them maps back to the shared display name in the file's metadata.
+    /// </summary>
+    /// <param name="planId">The id of the plan run.</param>
+    /// <param name="parameters">A lookup of parameters grouped by name. Multiple parameters may share a name.</param>
+    public void AddPlanRow(string planId, ILookup<string, IConvertible> parameters)
+    {
+        List<KeyValuePair<string, string>> mappings = new();
+        Dictionary<string, IConvertible> flatParameters = Disambiguate(parameters, "Plan/", mappings);
+
+        AddPlanRow(planId, flatParameters);
+        foreach (KeyValuePair<string, string> mapping in mappings)
+        {
+            AddNameMapping(mapping.Key, mapping.Value);
         }
     }
 
