@@ -35,11 +35,11 @@ internal class ExtensionTests
             new ResultColumn("Col3", Enumerable.Range(0, 10).Reverse().ToArray()),
         });
 
-        var results = table.GetResults(out _);
+        var results = table.GetResults();
             
-        Assert.That(results["Col1"], Is.EquivalentTo(Enumerable.Range(0, 10)));
-        Assert.That(results["Col2"], Is.EquivalentTo(Enumerable.Repeat(0, 10).ToArray()));
-        Assert.That(results["Col3"], Is.EquivalentTo(Enumerable.Range(0, 10).Reverse().ToArray()));
+        Assert.That(results["Col1"].Single(), Is.EquivalentTo(Enumerable.Range(0, 10)));
+        Assert.That(results["Col2"].Single(), Is.EquivalentTo(Enumerable.Repeat(0, 10).ToArray()));
+        Assert.That(results["Col3"].Single(), Is.EquivalentTo(Enumerable.Range(0, 10).Reverse().ToArray()));
     }
 
     [Test]

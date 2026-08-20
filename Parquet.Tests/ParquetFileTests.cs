@@ -55,6 +55,52 @@ public class ParquetFileTests
         Assert.That(reader.CustomMetadata["Mappings"], Is.EqualTo(JsonSerializer.Serialize(mappings)));
     }
 
+    [Test]
+    public async Task DuplicateResultNameLookupTest()
+    {
+        string path = Path.GetTempFileName();
+
+        string resultName = "Test";
+        string guid = Guid.NewGuid().ToString();
+        string parent = Guid.NewGuid().ToString();
+        string stepId = Guid.NewGuid().ToString();
+
+        // Two results share the same logical name "a" at the same time. Passing them as a lookup
+        // lets ParquetFile disambiguate the columns and register the name mapping automatically.
+        ILookup<string, Array> results = new[]
+        {
+            ("a", (Array)Enumerable.Range(0, 50).ToArray()),
+            ("a", (Array)Enumerable.Repeat("value", 50).ToArray()),
+            ("b", (Array)Enumerable.Range(100, 50).ToArray()),
+        }.ToLookup(t => t.Item1, t => t.Item2);
+
+        ParquetFile file = new ParquetFile(path);
+        file.AddResultRow(resultName, guid, parent, stepId, new Dictionary<string, IConvertible>(), results);
+        file.Dispose();
+
+        Assert.True(System.IO.File.Exists(path));
+
+        var reader = await Reader.CreateAsync(path);
+        string[] fields =
+        [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Result/a", "Result/a/1", "Result/b"
+        ];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(50));
+        for (int i = 0; i < 50; i++)
+        {
+            object?[] values = [resultName, guid, parent, stepId, i, "value", 100 + i];
+            Assert.That(reader.ReadRow(i), Is.EquivalentTo(values));
+        }
+
+        // The unique column keeps its name; the duplicate is suffixed and mapped back to "Result/a".
+        var mappings = new Dictionary<string, string>()
+        {
+            ["Result/a/1"] = "Result/a",
+        };
+        Assert.That(reader.CustomMetadata["Mappings"], Is.EqualTo(JsonSerializer.Serialize(mappings)));
+    }
 
     [Test]
     public async Task ResultRowTest()

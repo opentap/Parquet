@@ -9,6 +9,8 @@ namespace OpenTap.Plugins.Parquet.Core;
 /// It will write and manage multiple fragments and make sure they are being managed properly to ensure schema compliance.
 public sealed class ParquetFile : IDisposable
 {
+    private const string ResultPrefix = "Result/";
+
     private readonly Options? _options;
     private readonly List<Fragment> _fragments;
 
@@ -62,13 +64,51 @@ public sealed class ParquetFile : IDisposable
         parameters.Add("Guid", runId);
         parameters.Add("Parent", parentId);
         parameters.Add("StepId", stepId);
-        results = results.ToDictionary(kvp => "Result/" + kvp.Key, kvp => kvp.Value);
+        results = results.ToDictionary(kvp => ResultPrefix + kvp.Key, kvp => kvp.Value);
         while (!CurrentFragment.AddRows(parameters, results))
         {
             AddFragment();
         }
     }
-    
+
+    /// <summary>
+    /// Add a result row to the file where several result arrays may share the same name.
+    /// Columns sharing a name are written as separate parquet columns (the first keeps the name,
+    /// subsequent ones are suffixed with "/1", "/2", ...) and a name mapping is registered so that
+    /// every one of them maps back to the shared display name in the file's metadata.
+    /// </summary>
+    /// <param name="resultName">The name of the results.</param>
+    /// <param name="runId">The id of the step run that created the results.</param>
+    /// <param name="parentId">The id of the parent to the step run that created the results.</param>
+    /// <param name="stepId">The id of the test step within the test plan.</param>
+    /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
+    /// <param name="results">A lookup of result arrays grouped by column name. Multiple arrays may share a name.</param>
+    public void AddResultRow(string resultName, string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters, ILookup<string, Array> results)
+    {
+        Dictionary<string, Array> flattened = new();
+        List<KeyValuePair<string, string>> mappings = new();
+        foreach (IGrouping<string, Array> group in results)
+        {
+            int index = 0;
+            foreach (Array data in group)
+            {
+                string key = index == 0 ? group.Key : $"{group.Key}/{index}";
+                flattened[key] = data;
+                if (index > 0)
+                {
+                    mappings.Add(new KeyValuePair<string, string>(ResultPrefix + key, ResultPrefix + group.Key));
+                }
+                index += 1;
+            }
+        }
+
+        AddResultRow(resultName, runId, parentId, stepId, parameters, flattened);
+        foreach (KeyValuePair<string, string> mapping in mappings)
+        {
+            AddNameMapping(mapping.Key, mapping.Value);
+        }
+    }
+
     /// <summary>
     /// Register a mapping from a column's unique name to the display name it should map back to.
     /// This lets two separately written columns (e.g. "Result/a" and "Result/a/1") both map to the
