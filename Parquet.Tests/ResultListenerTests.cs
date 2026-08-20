@@ -128,6 +128,46 @@ internal class ResultListenerTests
     }
 
     [Test]
+    public async Task DuplicateResultNamesTest()
+    {
+        string path = Path.GetTempFileName();
+
+        TestPlan plan = new TestPlan();
+        // Publish a result table that contains two columns with the same name at the same time.
+        ResultStep step = new ResultStep("Test",
+            [
+                new ResultColumn("a", Enumerable.Range(0, 50).ToArray()),
+                new ResultColumn("a", Enumerable.Repeat("value", 50).ToArray()),
+            ],
+            []
+        );
+        plan.ChildTestSteps.Add(step);
+        ParquetResultListener resultListener = new ParquetResultListener()
+        {
+            FilePath = { Text = path },
+        };
+        var result = plan.Execute(new ResultListener[] { resultListener }, Array.Empty<ResultParameter>());
+        result.WaitForResults();
+
+        Assert.That(System.IO.File.Exists(path), Is.True);
+
+        var reader = await Reader.CreateAsync(path);
+
+        Assert.That(reader.Schema.DataFields.Select(f => f.Name), Does.Contain("Result/a"));
+        Assert.That(reader.Schema.DataFields.Select(f => f.Name), Does.Contain("Result/a/1"));
+        Assert.That(reader.Count, Is.EqualTo(51));
+        for (int i = 0; i < 50; i++)
+        {
+            Assert.That(reader.ReadCell(i + 1, "Result/a"), Is.EqualTo(i));
+            Assert.That(reader.ReadCell(i + 1, "Result/a/1"), Is.EqualTo("value"));
+        }
+
+        // Both physical columns map back to the same display name in the file's name mapping.
+        var mappings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(reader.CustomMetadata["Mappings"]);
+        Assert.That(mappings!["Result/a/1"], Is.EqualTo("Result/a"));
+    }
+
+    [Test]
     public async Task OverridesOldFiles()
     {
         string path = Path.GetTempFileName();

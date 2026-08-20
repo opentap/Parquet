@@ -1,11 +1,61 @@
 using NUnit.Framework;
 using OpenTap.Plugins.Parquet;
 using OpenTap.Plugins.Parquet.Core;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace Parquet.Tests;
 
 public class ParquetFileTests
 {
+    [Test]
+    public async Task DuplicateResultNameMappingTest()
+    {
+        string path = Path.GetTempFileName();
+
+        string resultName = "Test";
+        string guid = Guid.NewGuid().ToString();
+        string parent = Guid.NewGuid().ToString();
+        string stepId = Guid.NewGuid().ToString();
+
+        // The caller writes two results that share the same logical name "a" at the same time.
+        // It is the caller's responsibility to de-duplicate the keys before writing, so the two
+        // arrays are written under "a" and "a/1" respectively.
+        Dictionary<string, Array> results = new Dictionary<string, Array>()
+        {
+            { "a", Enumerable.Range(0, 50).ToArray() },
+            { "a/1", Enumerable.Repeat("value", 50).ToArray() },
+        };
+
+        ParquetFile file = new ParquetFile(path);
+        file.AddResultRow(resultName, guid, parent, stepId, new Dictionary<string, IConvertible>(), results);
+        // The caller registers the mapping so both physical columns map back to the same display name.
+        file.AddNameMapping("Result/a/1", "Result/a");
+        file.Dispose();
+
+        Assert.True(System.IO.File.Exists(path));
+
+        var reader = await Reader.CreateAsync(path);
+        string[] fields =
+        [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Result/a", "Result/a/1"
+        ];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
+        Assert.That(reader.Count, Is.EqualTo(50));
+        for (int i = 0; i < 50; i++)
+        {
+            object?[] values = [resultName, guid, parent, stepId, i, "value"];
+            Assert.That(reader.ReadRow(i), Is.EquivalentTo(values));
+        }
+
+        var mappings = new Dictionary<string, string>()
+        {
+            ["Result/a/1"] = "Result/a",
+        };
+        Assert.That(reader.CustomMetadata["Mappings"], Is.EqualTo(JsonSerializer.Serialize(mappings)));
+    }
+
+
     [Test]
     public async Task ResultRowTest()
     {
