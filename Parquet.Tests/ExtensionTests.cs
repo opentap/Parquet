@@ -6,6 +6,14 @@ using OpenTap.Plugins.Parquet.Extensions;
 
 namespace Parquet.Tests;
 
+internal class MockTestStep : TestStep
+{
+    public override void Run()
+    {
+        
+    }
+}
+
 internal class ExtensionTests
 {
     [TestCase(typeof(int), typeof(int?))]
@@ -37,7 +45,7 @@ internal class ExtensionTests
     [Test]
     public void TestRunGetParametersTest()
     {
-        var testStepRun = new TestStepRun(new DelayStep(), Guid.NewGuid(), new[]
+        var testStepRun = new TestStepRun(new MockTestStep(), Guid.NewGuid(), new[]
         {
             new ResultParameter("Group1", "Param1", 0),
             new ResultParameter("Group1", "Param2", 3.14),

@@ -24,22 +24,23 @@ internal sealed class Fragment : IDisposable
         
         public Array Data { get; }
         public int Count { get; set; } = 0;
-
-        public DataField Field => _field ??= new DataField(UniqueName, ParquetType, true);
         public Type ParquetType { get; }
-        public Type Type { get; }
         public string Name { get; }
         public string UniqueName { get; private set; }
 
         public ColumnData(string uniqueName, string name, Type type, int size, int existingCacheSize)
         {
-            Data = Array.CreateInstance(type.AsNullable(), size);
+            ParquetType = GetParquetType(type);
+            Data = Array.CreateInstance(ParquetType, size);
             Count = existingCacheSize;
             _field = null;
-            ParquetType = GetParquetType(type);
-            Type = type;
             UniqueName = uniqueName;
             Name = name;
+        }
+        
+        public DataField GetField()
+        {
+            return _field ??= new DataField(UniqueName, ParquetType, true);
         }
 
         public bool TrySetName(string name)
@@ -66,7 +67,7 @@ internal sealed class Fragment : IDisposable
     private int _cacheSize;
     private readonly List<ColumnData> _columns;
     private readonly HashSet<string> _uniqueColumnNames = new();
-    private readonly Dictionary<string, Dictionary<Type, ColumnData>> _cache;
+    private readonly Dictionary<string, List<ColumnData>> _cache;
     private readonly Dictionary<string, string> _metadata;
 
     private int RowGroupSize => _options.RowGroupSize;
@@ -118,8 +119,8 @@ internal sealed class Fragment : IDisposable
     {
         Dictionary<string, string> mappings = _cache
             .Values
-            .Where(d => d.Count > 1)
-            .SelectMany(d => d.Values)
+            .SelectMany(c => c)
+            .Where(c => c.UniqueName != c.Name)
             .ToDictionary(cd => cd.UniqueName, cd => cd.Name);
         SetMetadata("Mappings", JsonSerializer.Serialize(mappings));
     }
@@ -129,8 +130,8 @@ internal sealed class Fragment : IDisposable
     public bool AddRows(Dictionary<string, IConvertible> values,
         Dictionary<string, Array> arrayValues)
     {
-        if (!FitsInCache(values.Select(kvp => (kvp.Key, kvp.Value.GetType()))) ||
-            !FitsInCache(arrayValues.Select(kvp => (kvp.Key, kvp.Value.GetType().GetElementType()!))))
+        if (!FitsInCache(values.Select(kvp => (kvp.Key, kvp.Value.GetType().GetNullableUnderlyingType()))) ||
+            !FitsInCache(arrayValues.Select(kvp => (kvp.Key, kvp.Value.GetType().GetElementType()!.GetNullableUnderlyingType()))))
         {
             return false;
         }
@@ -143,11 +144,11 @@ internal sealed class Fragment : IDisposable
 
             foreach (ColumnData column in _columns)
             {
-                if (arrayValues.TryGetValue(column.Name, out Array? valueArr))
+                if (arrayValues.TryGetValue(column.Name, out Array? valueArr) && column.ParquetType == GetParquetType(valueArr.GetType().GetElementType()!))
                 {
                     AddToColumn(column, valueArr, startIndex, count);
                 }
-                else if (values.TryGetValue(column.Name, out IConvertible? value))
+                else if (values.TryGetValue(column.Name, out IConvertible? value) && column.ParquetType == GetParquetType(value.GetType()))
                 {
                     AddToColumn(column, value, count);
                 }
@@ -170,7 +171,7 @@ internal sealed class Fragment : IDisposable
     private bool FitsInCache(IEnumerable<ColumnKey> fields)
     {
         // TODO: Test this function, rename- and add-column.
-        foreach ((string name, Type type) in fields)
+        foreach ((string name, Type? type) in fields)
         {
             if (!FitsInCache(name, type))
             {
@@ -183,19 +184,29 @@ internal sealed class Fragment : IDisposable
 
     private bool FitsInCache(string name, Type type)
     {
-        if (!_cache.TryGetValue(name, out Dictionary<Type, ColumnData>? typeCache))
+        // Check if there is any columns with the same name.
+        if (!_cache.TryGetValue(name, out List<ColumnData>? columns))
         {
             return AddColumn(name, type) is not null;
         }
-
-        if (typeCache.ContainsKey(type)) return true;
         
-        if (typeCache.Count == 1)
+        // Are there any compatible with our parquet type.
+        Type parquetType = GetParquetType(type);
+        if (columns.FirstOrDefault(c => c.ParquetType == parquetType) is { })
         {
-            ColumnData data = typeCache.Values.First();
-            data.TrySetName(FindUniqueName(data.Name + "/" + data.Type.GetNullableUnderlyingType().Name));
+            return true;
         }
-        bool val = AddColumn(name, type, FindUniqueName(name + "/" + type.GetNullableUnderlyingType().Name)) is not null;
+        
+        // Create new column and rename old column.
+        if (columns.Count == 1)
+        {
+            ColumnData data = columns[0];
+            if (!data.TrySetName(FindUniqueName(data.Name + "/" + data.ParquetType.GetNullableUnderlyingType().Name)))
+            {
+                return false;
+            }
+        }
+        bool val = AddColumn(name, parquetType, FindUniqueName(name + "/" + parquetType.GetNullableUnderlyingType().Name)) is not null;
         UpdateMappings();
         return val;
 
@@ -213,13 +224,13 @@ internal sealed class Fragment : IDisposable
             uniqueName = FindUniqueName(name);
         }
 
-        if (!_cache.TryGetValue(name, out Dictionary<Type, ColumnData>? typeCache))
+        if (!_cache.TryGetValue(name, out List<ColumnData>? columns))
         {
-            typeCache = new();
-            _cache[name] = typeCache;
+            columns = new();
+            _cache[name] = columns;
         }
-        ColumnData data = new ColumnData(uniqueName, name, GetParquetType(type), RowGroupSize, _cacheSize);
-        typeCache.Add(type, data);
+        ColumnData data = new ColumnData(uniqueName, name, type, RowGroupSize, _cacheSize);
+        columns.Add(data);
         _columns.Add(data);
         return data;
     }
@@ -239,23 +250,14 @@ internal sealed class Fragment : IDisposable
             }
         }
     
-        _uniqueColumnNames.Add(name);
+        _uniqueColumnNames.Add(str);
     
         return str;
     }
 
-    private void AddToColumn(ColumnData column, IConvertible? value, int count) {
-        if (column.ParquetType != value?.GetType())
-        {
-            if (column.ParquetType == typeof(string) && column.Name == column.UniqueName)
-            {
-                value = value?.ToString(CultureInfo.InvariantCulture);
-            }
-            else
-            {
-                value = null;
-            }
-        }
+    private void AddToColumn(ColumnData column, IConvertible? value, int count)
+    {
+        value = column.ParquetType == typeof(string) ? value?.ToString(CultureInfo.InvariantCulture) : value;
 
         for (int i = 0; i < count; i++)
         {
@@ -271,10 +273,7 @@ internal sealed class Fragment : IDisposable
             .Concat(Enumerable.Repeat<object?>(null, Math.Max(count + startIndex - values.Length, 0)))
             .Take(count);
         Type valueType = values.GetType().GetElementType()!;
-        if (!column.Type.IsAssignableFrom(valueType))
-        {
-            vals = ShouldConvertToString(valueType) ? vals.Select(o => o?.ToString()) : vals.Select<object?, object?>(_ => null);
-        }
+        vals = column.ParquetType == typeof(string) ? vals.Select(o => o?.ToString()) : vals;
         Array.Copy(vals.ToArray(), 0, column.Data, column.Count, count);
         column.Count += count;
     }
@@ -302,7 +301,7 @@ internal sealed class Fragment : IDisposable
     {
         if (CanEdit)
         {
-            _schema = new ParquetSchema(_columns.Select(cd => cd.Field));
+            _schema = new ParquetSchema(_columns.Select(cd => cd.GetField()));
             _writer = ParquetWriter.CreateAsync(_schema, _stream, _options.ParquetOptions).Result;
             _writer.CompressionMethod = _options.CompressionMethod;
             _writer.CompressionLevel = _options.CompressionLevel;
@@ -326,7 +325,7 @@ internal sealed class Fragment : IDisposable
             using ParquetRowGroupWriter writer = _writer!.CreateRowGroup();
             foreach (ColumnData cd in _columns)
             {
-                DataField field = cd.Field;
+                DataField field = cd.GetField();
                 DataColumn column = GetColumn(columns, field, groupReader);
                 writer.WriteColumnAsync(column).Wait();
             }
@@ -373,13 +372,14 @@ internal sealed class Fragment : IDisposable
     
     private static Type GetParquetType(Type type)
     {
+        type = type.GetNullableUnderlyingType();
         if (ShouldConvertToString(type))
         {
             return typeof(string);
         }
 
-        return type;
+        return type.AsNullable();
     }
 
-    private static bool ShouldConvertToString(Type type) => type.IsEnum || type == typeof(object);
+    internal static bool ShouldConvertToString(Type type) => type.IsEnum || type == typeof(object);
 }
