@@ -70,6 +70,20 @@ public sealed class ParquetFile : IDisposable
     }
     
     /// <summary>
+    /// Register a mapping from a column's unique name to the display name it should map back to.
+    /// This lets two separately written columns (e.g. "Result/a" and "Result/a/1") both map to the
+    /// same display name (e.g. "Result/a") in the file's name mapping metadata.
+    /// The caller is responsible for de-duplicating the column names before writing them and for
+    /// supplying the corresponding mapping here.
+    /// </summary>
+    /// <param name="uniqueName">The unique (physical) name of the column that was written.</param>
+    /// <param name="name">The display name the column should map to.</param>
+    public void AddNameMapping(string uniqueName, string name)
+    {
+        CurrentFragment.AddNameMapping(uniqueName, name);
+    }
+
+    /// <summary>
     /// Add a step row without results to the file.
     /// </summary>
     /// <param name="runId">The id of the step run.</param>

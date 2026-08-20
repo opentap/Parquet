@@ -69,6 +69,7 @@ internal sealed class Fragment : IDisposable
     private readonly HashSet<string> _uniqueColumnNames = new();
     private readonly Dictionary<string, List<ColumnData>> _cache;
     private readonly Dictionary<string, string> _metadata;
+    private readonly Dictionary<string, string> _nameMappings;
 
     private int RowGroupSize => _options.RowGroupSize;
 
@@ -85,6 +86,7 @@ internal sealed class Fragment : IDisposable
         _columns = new();
         _cache = new();
         _metadata = new();
+        _nameMappings = new();
         AddColumn("ResultName", typeof(string));
         AddColumn("Guid", typeof(string));
         AddColumn("Parent", typeof(string));
@@ -106,6 +108,7 @@ internal sealed class Fragment : IDisposable
         _columns = fragment._columns;
         _cache = fragment._cache;
         _metadata = fragment._metadata;
+        _nameMappings = fragment._nameMappings;
     }
 
     public bool CanEdit => _writer is null;
@@ -115,6 +118,20 @@ internal sealed class Fragment : IDisposable
         _metadata[key] = value;
     }
 
+    /// <summary>
+    /// Register a mapping from a column's unique name to the display name it should map back to.
+    /// This allows two separate columns (e.g. "Result/a" and "Result/a/1") to both map to the
+    /// same display name (e.g. "Result/a") in the file's name mapping metadata.
+    /// The caller is responsible for supplying already de-duplicated unique column names.
+    /// </summary>
+    /// <param name="uniqueName">The unique (physical) name of the column that already exists in the file.</param>
+    /// <param name="name">The display name the column should map to.</param>
+    public void AddNameMapping(string uniqueName, string name)
+    {
+        _nameMappings[uniqueName] = name;
+        UpdateMappings();
+    }
+
     private void UpdateMappings()
     {
         Dictionary<string, string> mappings = _cache
@@ -122,6 +139,10 @@ internal sealed class Fragment : IDisposable
             .SelectMany(c => c)
             .Where(c => c.UniqueName != c.Name)
             .ToDictionary(cd => cd.UniqueName, cd => cd.Name);
+        foreach (KeyValuePair<string, string> mapping in _nameMappings)
+        {
+            mappings[mapping.Key] = mapping.Value;
+        }
         SetMetadata("Mappings", JsonSerializer.Serialize(mappings));
     }
     
