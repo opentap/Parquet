@@ -9,7 +9,6 @@ using OpenTap.Plugins.Parquet.Core.Extensions;
 using Parquet;
 using Parquet.Data;
 using Parquet.Schema;
-using ColumnKey = (string name, System.Type type);
 
 namespace OpenTap.Plugins.Parquet.Core;
 
@@ -41,17 +40,6 @@ internal sealed class Fragment : IDisposable
         public DataField GetField()
         {
             return _field ??= new DataField(UniqueName, ParquetType, true);
-        }
-
-        public bool TrySetName(string name)
-        {
-            if (_field is not null)
-            {
-                return false;
-            }
-
-            UniqueName = name;
-            return true;
         }
 
         public override string ToString()
@@ -127,16 +115,17 @@ internal sealed class Fragment : IDisposable
     
     public string Path { get; }
 
-    public bool AddRows(Dictionary<string, IConvertible> values,
-        Dictionary<string, Array> arrayValues)
+    public bool AddRows(Dictionary<string, List<IConvertible>> values,
+        Dictionary<string, List<Array>> arrayValues)
     {
-        if (!FitsInCache(values.Select(kvp => (kvp.Key, kvp.Value.GetType().GetNullableUnderlyingType()))) ||
-            !FitsInCache(arrayValues.Select(kvp => (kvp.Key, kvp.Value.GetType().GetElementType()!.GetNullableUnderlyingType()))))
+        Dictionary<ColumnData, object> columns = new();
+        if (!TryClaimColumns(columns, values.Select(kvp => (kvp.Key, kvp.Value))) ||
+            !TryClaimColumns(columns, arrayValues.Select(kvp => (kvp.Key, kvp.Value))))
         {
             return false;
         }
         
-        int resultCount = Math.Max(1, arrayValues.Any() ? arrayValues.Max(d => d.Value.Length) : 1);
+        int resultCount = Math.Max(1, arrayValues.Any() ? arrayValues.SelectMany(a => a.Value).Max(a => a.Length) : 1);
         int startIndex = 0;
         while (startIndex < resultCount)
         {
@@ -144,13 +133,14 @@ internal sealed class Fragment : IDisposable
 
             foreach (ColumnData column in _columns)
             {
-                if (arrayValues.TryGetValue(column.Name, out Array? valueArr) && column.ParquetType == GetParquetType(valueArr.GetType().GetElementType()!))
+                object? obj = columns.GetValueOrDefault(column);
+                if (obj is Array arr)
                 {
-                    AddToColumn(column, valueArr, startIndex, count);
+                    AddToColumn(column, arr, startIndex, count);
                 }
-                else if (values.TryGetValue(column.Name, out IConvertible? value) && column.ParquetType == GetParquetType(value.GetType()))
+                else if (obj is IConvertible convertible)
                 {
-                    AddToColumn(column, value, count);
+                    AddToColumn(column, convertible, count);
                 }
                 else
                 {
@@ -168,48 +158,55 @@ internal sealed class Fragment : IDisposable
         return true;
     }
 
-    private bool FitsInCache(IEnumerable<ColumnKey> fields)
+    private bool TryClaimColumns<T>(Dictionary<ColumnData, object> columns, IEnumerable<(string name, List<T> value)> fields)
+        where T : notnull
     {
-        // TODO: Test this function, rename- and add-column.
-        foreach ((string name, Type? type) in fields)
+        foreach ((string name, List<T> values) in fields)
         {
-            if (!FitsInCache(name, type))
+            foreach (object value in values)
             {
-                return false;
+                if (!TryClaimColumn(columns, name, value))
+                {
+                    return false;
+                }
             }
         }
 
         return true;
     }
 
-    private bool FitsInCache(string name, Type type)
+    private bool TryClaimColumn(Dictionary<ColumnData, object> columns, string name, object value)
     {
-        // Check if there is any columns with the same name.
-        if (!_cache.TryGetValue(name, out List<ColumnData>? columns))
+        Type type = value.GetType().GetElementTypeOrSelf().GetNullableUnderlyingType();
+        // Add new columns
+        if (!_cache.TryGetValue(name, out List<ColumnData>? cachedColumns))
         {
-            return AddColumn(name, type) is not null;
+            if (AddColumn(name, type) is { } column)
+            {
+                columns[column] = value;
+                return true;
+            }
+
+            return false;
         }
         
-        // Are there any compatible with our parquet type.
+        // Are there any compatible with our parquet type
         Type parquetType = GetParquetType(type);
-        if (columns.FirstOrDefault(c => c.ParquetType == parquetType) is { })
+        List<ColumnData> typedColumns = cachedColumns.Where(c => c.ParquetType == parquetType).ToList();
+        if (typedColumns.FirstOrDefault(c => !columns.ContainsKey(c)) is { } existingColumn)
         {
+            columns[existingColumn] = value;
             return true;
         }
         
-        // Create new column and rename old column.
-        if (columns.Count == 1)
+        // Create new column
+        if (AddColumn(name, parquetType, FindUniqueName(name)) is { } newColumn)
         {
-            ColumnData data = columns[0];
-            if (!data.TrySetName(FindUniqueName(data.Name + "/" + data.ParquetType.GetNullableUnderlyingType().Name)))
-            {
-                return false;
-            }
+            columns[newColumn] = value;
+            return true;
         }
-        bool val = AddColumn(name, parquetType, FindUniqueName(name + "/" + parquetType.GetNullableUnderlyingType().Name)) is not null;
-        UpdateMappings();
-        return val;
 
+        return false;
     }
 
     private ColumnData? AddColumn(string name, Type type, string? uniqueName = null)
@@ -232,16 +229,17 @@ internal sealed class Fragment : IDisposable
         ColumnData data = new ColumnData(uniqueName, name, type, RowGroupSize, _cacheSize);
         columns.Add(data);
         _columns.Add(data);
+        UpdateMappings();
         return data;
     }
 
     private string FindUniqueName(string name)
     {
         string str = name;
-        int attempt = 0;
+        int attempt = 1;
         while (_uniqueColumnNames.Contains(str))
         {
-            str = name + attempt;
+            str = name + "/" + attempt;
             attempt += 1;
     
             if (attempt == int.MaxValue)
