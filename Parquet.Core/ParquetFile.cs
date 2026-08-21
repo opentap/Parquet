@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using OpenTap.Plugins.Parquet.Core.Extensions;
 
 namespace OpenTap.Plugins.Parquet.Core;
 
@@ -57,13 +58,19 @@ public sealed class ParquetFile : IDisposable
     /// <param name="results">A dictionary containing the results of the step, to look them up by their column names.</param>
     public void AddResultRow(string resultName, string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters, Dictionary<string, Array> results)
     {
-        parameters = parameters.ToDictionary(kvp => "Step/" + kvp.Key, kvp => kvp.Value);
-        parameters.Add("ResultName", resultName);
-        parameters.Add("Guid", runId);
-        parameters.Add("Parent", parentId);
-        parameters.Add("StepId", stepId);
-        results = results.ToDictionary(kvp => "Result/" + kvp.Key, kvp => kvp.Value);
-        while (!CurrentFragment.AddRows(parameters, results))
+        AddResultRow(resultName, runId, parentId, stepId, parameters.ToLookup(kvp => kvp.Key, kvp => kvp.Value), results.ToLookup(kvp => kvp.Key, kvp => kvp.Value));
+    }
+
+    public void AddResultRow(string resultName, string runId, string parentId, string stepId,
+        ILookup<string, IConvertible> parameters, ILookup<string, Array> results)
+    {
+        var parametersDict = parameters.ToDictLookup(g => "Step/" + g.Key, g => g);
+        parametersDict.Add("ResultName", resultName);
+        parametersDict.Add("Guid", runId);
+        parametersDict.Add("Parent", parentId);
+        parametersDict.Add("StepId", stepId);
+        var resultsDict = results.ToDictLookup(g => "Result/" + g.Key, g => g);
+        while (!CurrentFragment.AddRows(parametersDict, resultsDict))
         {
             AddFragment();
         }
@@ -78,11 +85,16 @@ public sealed class ParquetFile : IDisposable
     /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
     public void AddStepRow(string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters)
     {
-        parameters = parameters.ToDictionary(kvp => "Step/" + kvp.Key, kvp => kvp.Value);
-        parameters.Add("Guid", runId);
-        parameters.Add("Parent", parentId);
-        parameters.Add("StepId", stepId);
-        while (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
+        AddStepRow(runId, parentId, stepId, parameters.ToLookup(kvp => kvp.Key, kvp => kvp.Value));
+    }
+
+    public void AddStepRow(string runId, string parentId, string stepId, ILookup<string, IConvertible> parameters)
+    {
+        var parametersDict = parameters.ToDictLookup(g => "Step/" + g.Key, g => g);
+        parametersDict.Add("Guid", runId);
+        parametersDict.Add("Parent", parentId);
+        parametersDict.Add("StepId", stepId);
+        while (!CurrentFragment.AddRows(parametersDict, new Dictionary<string, List<Array>>()))
         {
             AddFragment();
         }
@@ -95,9 +107,14 @@ public sealed class ParquetFile : IDisposable
     /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
     public void AddPlanRow(string planId, Dictionary<string, IConvertible> parameters)
     {
-        parameters = parameters.ToDictionary(kvp => "Plan/" + kvp.Key, kvp => kvp.Value);
-        parameters.Add("Guid", planId);
-        while (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
+        AddPlanRow(planId, parameters.ToLookup(kvp => kvp.Key, kvp => kvp.Value));
+    }
+
+    public void AddPlanRow(string planId, ILookup<string, IConvertible> parameters)
+    {
+        var parametersDict = parameters.ToDictLookup(g => "Plan/" + g.Key, g => g);
+        parametersDict.Add("Guid", planId);
+        while (!CurrentFragment.AddRows(parametersDict, new Dictionary<string, List<Array>>()))
         {
             AddFragment();
         }
