@@ -161,7 +161,6 @@ internal sealed class Fragment : IDisposable
     private bool TryClaimColumns<T>(Dictionary<ColumnData, object> columns, IEnumerable<(string name, List<T> value)> fields)
         where T : notnull
     {
-        // TODO: Test this function, rename- and add-column.
         foreach ((string name, List<T> values) in fields)
         {
             foreach (object value in values)
@@ -201,10 +200,9 @@ internal sealed class Fragment : IDisposable
         }
         
         // Create new column
-        if (AddColumn(name, parquetType, FindUniqueName(name + "/" + cachedColumns.Count)) is { } newColumn)
+        if (AddColumn(name, parquetType, FindUniqueName(name)) is { } newColumn)
         {
             columns[newColumn] = value;
-            UpdateMappings();
             return true;
         }
 
@@ -231,16 +229,17 @@ internal sealed class Fragment : IDisposable
         ColumnData data = new ColumnData(uniqueName, name, type, RowGroupSize, _cacheSize);
         columns.Add(data);
         _columns.Add(data);
+        UpdateMappings();
         return data;
     }
 
     private string FindUniqueName(string name)
     {
         string str = name;
-        int attempt = 0;
+        int attempt = 1;
         while (_uniqueColumnNames.Contains(str))
         {
-            str = name + attempt;
+            str = name + "/" + attempt;
             attempt += 1;
     
             if (attempt == int.MaxValue)
