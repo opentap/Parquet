@@ -9,6 +9,17 @@ namespace Parquet.Tests;
 
 public class FragmentTests
 {
+    // Wrap single-valued dictionaries into the List-based shape that Fragment.AddRows now expects.
+    private static Dictionary<string, List<IConvertible>> Values(Dictionary<string, IConvertible> values)
+    {
+        return values.ToDictionary(kvp => kvp.Key, kvp => new List<IConvertible> { kvp.Value });
+    }
+
+    private static Dictionary<string, List<Array>> Arrays(Dictionary<string, Array> arrayValues)
+    {
+        return arrayValues.ToDictionary(kvp => kvp.Key, kvp => new List<Array> { kvp.Value });
+    }
+
     [Test]
     public async Task CreateEmptyFileTest()
     {
@@ -31,7 +42,7 @@ public class FragmentTests
         string path = Path.GetTempFileName();
 
         var frag = new Fragment(path, new Options());
-        frag.AddRows(new Dictionary<string, IConvertible>(), new Dictionary<string, Array>());
+        frag.AddRows(Values(new Dictionary<string, IConvertible>()), Arrays(new Dictionary<string, Array>()));
         frag.Dispose();
 
         Assert.True(System.IO.File.Exists(path));
@@ -56,13 +67,13 @@ public class FragmentTests
         string stepId = Guid.NewGuid().ToString();
 
         var frag = new Fragment(path, new Options());
-        frag.AddRows(new Dictionary<string, IConvertible>()
+        frag.AddRows(Values(new Dictionary<string, IConvertible>()
         {
             { "ResultName", resultName },
             { "Guid", guid },
             { "Parent", parent },
             { "StepId", stepId }
-        }, new Dictionary<string, Array>());
+        }), Arrays(new Dictionary<string, Array>()));
         frag.Dispose();
 
         Assert.True(System.IO.File.Exists(path));
@@ -90,10 +101,10 @@ public class FragmentTests
         string path = Path.GetTempFileName();
         
         var frag = new Fragment(path, new Options());
-        frag.AddRows(new Dictionary<string, IConvertible>()
+        frag.AddRows(Values(new Dictionary<string, IConvertible>()
         {
             { name, value },
-        }, new Dictionary<string, Array>());
+        }), Arrays(new Dictionary<string, Array>()));
         frag.Dispose();
 
         Assert.True(System.IO.File.Exists(path));
@@ -113,20 +124,20 @@ public class FragmentTests
         string path = Path.GetTempFileName();
 
         var frag = new Fragment(path, new Options());
-        frag.AddRows(new Dictionary<string, IConvertible>()
+        frag.AddRows(Values(new Dictionary<string, IConvertible>()
         {
             { name, value1 },
-        },  new Dictionary<string, Array>());
-        frag.AddRows(new Dictionary<string, IConvertible>()
+        }),  Arrays(new Dictionary<string, Array>()));
+        frag.AddRows(Values(new Dictionary<string, IConvertible>()
         {
             { name, value2 },
-        },  new Dictionary<string, Array>());
+        }),  Arrays(new Dictionary<string, Array>()));
         frag.Dispose();
 
         Assert.True(System.IO.File.Exists(path));
 
         var reader = await Reader.CreateAsync(path);
-        string[] fields = ["ResultName", "Guid", "Parent", "StepId", name + "/" + value1.GetType().Name, name + "/" + value2.GetType().Name];
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId", name, name + "/1"];
         Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
         Assert.That(reader.Count, Is.EqualTo(2));
         object?[] values1 = [null, null, null, null, value1, null];
@@ -154,10 +165,10 @@ public class FragmentTests
         string path = Path.GetTempFileName();
 
         var frag = new Fragment(path, new Options());
-        frag.AddRows(new Dictionary<string, IConvertible>(), new Dictionary<string, Array>()
+        frag.AddRows(Values(new Dictionary<string, IConvertible>()), Arrays(new Dictionary<string, Array>()
         {
             { name, expected },
-        });
+        }));
         frag.Dispose();
 
         Assert.True(System.IO.File.Exists(path));
@@ -188,20 +199,20 @@ public class FragmentTests
         var guid2 = Guid.NewGuid().ToString();
 
         var frag = new Fragment(path, new Options() { RowGroupSize = rowGroupSize });
-        frag.AddRows(new Dictionary<string, IConvertible>()
+        frag.AddRows(Values(new Dictionary<string, IConvertible>()
         {
             { "Guid", guid1 },
-        }, new Dictionary<string, Array>()
+        }), Arrays(new Dictionary<string, Array>()
         {
             { "Result/data", Enumerable.Range(0, 50).ToArray() }
-        });
-        frag.AddRows(new Dictionary<string, IConvertible>()
+        }));
+        frag.AddRows(Values(new Dictionary<string, IConvertible>()
         {
             { "Guid", guid2 },
-        }, new Dictionary<string, Array>()
+        }), Arrays(new Dictionary<string, Array>()
         {
             { "Result/data", Enumerable.Range(50, 50).ToArray() }
-        });
+        }));
 
         frag.Dispose();
 
@@ -235,7 +246,7 @@ public class FragmentTests
         };
 
         var frag = new Fragment(path, new Options() { RowGroupSize = rowGroupSize });
-        frag.AddRows(new Dictionary<string, IConvertible>(), results);
+        frag.AddRows(Values(new Dictionary<string, IConvertible>()), Arrays(results));
         frag.Dispose();
 
         Assert.True(System.IO.File.Exists(path));
@@ -253,17 +264,16 @@ public class FragmentTests
 
     public static IEnumerable<object[]> ArrayColumnTypeCollisionSource()
     {
-        yield return [new float?[] { 0.1f, 0.2f, 0.3f, null }, new string[] { "1", "2" },
-            "Custom/Single", "Custom/String"];
+        yield return [new float?[] { 0.1f, 0.2f, 0.3f, null }, new string[] { "1", "2" }];
     }
 
     [TestCaseSource(nameof(ArrayColumnTypeCollisionSource))]
-    [TestCase(new [] { 0, 1, 2 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Int32", "Custom/Single")]
-    [TestCase(new [] { 0, 1, 2 }, new [] {0.1, 0.2, 0.3 },"Custom/Int32", "Custom/Double")]
-    [TestCase(new [] { 0.1, 1.2, 2.3 }, new [] {0.1f, 0.2f, 0.3f },"Custom/Double", "Custom/Single")]
-    [TestCase(new [] { 0.1, 1.2, 2.3 }, new object[] { 0.1, 1.2, 2.3 },"Custom/Double", "Custom/String")]
-    [TestCase(new [] { "String", "Test", "Hello" }, new [] {0.1f, 0.2f, 0.3f },"Custom/String", "Custom/Single")]
-    public async Task ArrayColumnTypeCollisionTest(Array arr1, Array arr2, string name1, string name2)
+    [TestCase(new [] { 0, 1, 2 }, new [] {0.1f, 0.2f, 0.3f })]
+    [TestCase(new [] { 0, 1, 2 }, new [] {0.1, 0.2, 0.3 })]
+    [TestCase(new [] { 0.1, 1.2, 2.3 }, new [] {0.1f, 0.2f, 0.3f })]
+    [TestCase(new [] { 0.1, 1.2, 2.3 }, new object[] { 0.1, 1.2, 2.3 })]
+    [TestCase(new [] { "String", "Test", "Hello" }, new [] {0.1f, 0.2f, 0.3f })]
+    public async Task ArrayColumnTypeCollisionTest(Array arr1, Array arr2)
     {
         string path = Path.GetTempFileName();
         
@@ -271,26 +281,28 @@ public class FragmentTests
         var guid2 = Guid.NewGuid().ToString();
         
         var frag = new Fragment(path, new Options());
-        frag.AddRows(new Dictionary<string, IConvertible>()
+        frag.AddRows(Values(new Dictionary<string, IConvertible>()
         {
             {"Guid", guid1},
-        }, new Dictionary<string, Array>()
+        }), Arrays(new Dictionary<string, Array>()
         {
             {"Custom", arr1},
-        });
-        frag.AddRows(new Dictionary<string, IConvertible>()
+        }));
+        frag.AddRows(Values(new Dictionary<string, IConvertible>()
         {
             {"Guid", guid2},
-        }, new Dictionary<string, Array>()
+        }), Arrays(new Dictionary<string, Array>()
         {
             {"Custom", arr2},
-        });
+        }));
         frag.Dispose();
 
         Assert.True(System.IO.File.Exists(path));
         
         var reader = await Reader.CreateAsync(path);
-        string[] fields = ["ResultName", "Guid", "Parent", "StepId", name1, name2];
+        // The first array keeps the plain name; the second, incompatible-typed array is written to a
+        // new indexed column (Custom/1) rather than a type-qualified one.
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Custom", "Custom/1"];
         Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields));
         Assert.That(reader.Count, Is.EqualTo(arr1.Length + arr2.Length));
         for (int i = 0; i < arr1.Length; i++)
@@ -305,10 +317,10 @@ public class FragmentTests
         }
 
         var metadata = reader.CustomMetadata;
+        // Only the renamed (indexed) column is recorded in the mapping back to the shared display name.
         var mappings = new Dictionary<string, string>()
         {
-            [name1] = "Custom",
-            [name2] = "Custom",
+            ["Custom/1"] = "Custom",
         };
         Assert.That(metadata["Mappings"], Is.EqualTo(JsonSerializer.Serialize(mappings)));
     }
