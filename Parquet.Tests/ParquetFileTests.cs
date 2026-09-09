@@ -267,6 +267,83 @@ public class ParquetFileTests
             "Mapping for the split column must survive the merge.");
     }
 
+    private static List<(string display, object? value)> ReadRowByDisplayName(Reader reader, long row)
+    {
+        var mappings = System.Text.Json.JsonSerializer
+            .Deserialize<Dictionary<string, string>>(reader.CustomMetadata["Mappings"])!;
+        return reader.Schema.DataFields.Select(f => f.Name)
+            .Zip(reader.ReadRow(row))
+            .Select(p => (mappings.TryGetValue(p.First, out string? d) ? d : p.First, p.Second))
+            .ToList();
+    }
+
+    [Test]
+    public async Task TypeCollisionResolvedInDerivedFragmentTest()
+    {
+        string path = Path.GetTempFileName();
+
+        ParquetFile file = new ParquetFile(path, new Options { RowGroupSize = 1 });
+        file.AddStepRow("g1", "", "", new Dictionary<string, IConvertible> { { "a", 1 } });
+        file.AddStepRow("g2", "", "", new Dictionary<string, IConvertible> { { "a", "text" } });
+        Assert.That(file.FragmentCount, Is.GreaterThan(1),
+            "A type collision after a flush should force a second fragment.");
+        file.Dispose();
+
+        var reader = await Reader.CreateAsync(path);
+        var names = reader.Schema.Fields.Select(f => f.Name).ToList();
+        Assert.That(names.Distinct().Count(), Is.EqualTo(names.Count),
+            $"No two physical columns may share a name, got: {string.Join(", ", names)}");
+        Assert.That(names.Count, Is.EqualTo(6),
+            "Expected the four default columns plus one int and one string column for 'a'.");
+        Assert.That(reader.Count, Is.EqualTo(2));
+
+        var row0 = ReadRowByDisplayName(reader, 0);
+        Assert.That(row0.Where(c => c.display == "Step/a").Select(c => c.value),
+            Is.EquivalentTo(new object?[] { 1, null }), "row 0 should hold the int value only.");
+        var row1 = ReadRowByDisplayName(reader, 1);
+        Assert.That(row1.Where(c => c.display == "Step/a").Select(c => c.value),
+            Is.EquivalentTo(new object?[] { null, "text" }), "row 1 should hold the string value only.");
+    }
+
+    [Test]
+    public async Task ExtraDuplicateResolvedInDerivedFragmentTest()
+    {
+        string path = Path.GetTempFileName();
+
+        var noParams = Array.Empty<(string, IConvertible)>().ToLookup(x => x.Item1, x => x.Item2);
+        ILookup<string, Array> results1 = new (string Key, Array Value)[]
+        {
+            ("V", new[] { 1 }),
+        }.ToLookup(x => x.Key, x => x.Value);
+        ILookup<string, Array> results2 = new (string Key, Array Value)[]
+        {
+            ("V", new[] { 2 }),
+            ("V", new[] { 20 }),
+        }.ToLookup(x => x.Key, x => x.Value);
+
+        ParquetFile file = new ParquetFile(path, new Options { RowGroupSize = 1 });
+        file.AddResultRow("R", "g1", "", "", noParams, results1);
+        file.AddResultRow("R", "g2", "", "", noParams, results2);
+        Assert.That(file.FragmentCount, Is.GreaterThan(1),
+            "An extra duplicate after a flush should force a second fragment.");
+        file.Dispose();
+
+        var reader = await Reader.CreateAsync(path);
+        var names = reader.Schema.Fields.Select(f => f.Name).ToList();
+        Assert.That(names.Distinct().Count(), Is.EqualTo(names.Count),
+            $"No two physical columns may share a name, got: {string.Join(", ", names)}");
+        Assert.That(names.Count, Is.EqualTo(6),
+            "Expected the four default columns plus two columns for 'Result/V'.");
+        Assert.That(reader.Count, Is.EqualTo(2));
+
+        var row0 = ReadRowByDisplayName(reader, 0);
+        Assert.That(row0.Where(c => c.display == "Result/V").Select(c => c.value),
+            Is.EquivalentTo(new object?[] { 1, null }), "call 1 published a single 'V'.");
+        var row1 = ReadRowByDisplayName(reader, 1);
+        Assert.That(row1.Where(c => c.display == "Result/V").Select(c => c.value),
+            Is.EquivalentTo(new object?[] { 2, 20 }), "call 2 published both 'V' values into separate columns.");
+    }
+
     // TODO: Insert tests with file merging.
     // Test one: Can files be merged at all
     // Test two: Do files keep their order when merged

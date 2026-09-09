@@ -54,7 +54,7 @@ internal sealed class Fragment : IDisposable
     private ParquetSchema? _schema;
     private int _cacheSize;
     private readonly List<ColumnData> _columns;
-    private readonly HashSet<string> _uniqueColumnNames = new();
+    private readonly HashSet<string> _uniqueColumnNames;
     private readonly Dictionary<string, List<ColumnData>> _cache;
     private readonly Dictionary<string, string> _metadata;
 
@@ -71,6 +71,7 @@ internal sealed class Fragment : IDisposable
         }
         _stream = File.Open(Path, FileMode.Create, FileAccess.Write);
         _columns = new();
+        _uniqueColumnNames = new();
         _cache = new();
         _metadata = new();
         AddColumn("ResultName", typeof(string));
@@ -92,6 +93,7 @@ internal sealed class Fragment : IDisposable
         }
         _stream = File.Open(Path, FileMode.Create, FileAccess.Write);
         _columns = fragment._columns;
+        _uniqueColumnNames = fragment._uniqueColumnNames;
         _cache = fragment._cache;
         _metadata = fragment._metadata;
     }
@@ -125,7 +127,7 @@ internal sealed class Fragment : IDisposable
             return false;
         }
         
-        int resultCount = Math.Max(1, arrayValues.Any() ? arrayValues.SelectMany(a => a.Value).Max(a => a.Length) : 1);
+        int resultCount = Math.Max(1, arrayValues.Any() ? arrayValues.SelectMany(a => a.Value).DefaultIfEmpty(new int[0]).Max(a => a.Length) : 1);
         int startIndex = 0;
         while (startIndex < resultCount)
         {
@@ -159,12 +161,16 @@ internal sealed class Fragment : IDisposable
     }
 
     private bool TryClaimColumns<T>(Dictionary<ColumnData, object> columns, IEnumerable<(string name, List<T> value)> fields)
-        where T : notnull
     {
         foreach ((string name, List<T> values) in fields)
         {
-            foreach (object value in values)
+            foreach (T value in values)
             {
+                if (value is null)
+                {
+                    continue;
+                }
+
                 if (!TryClaimColumn(columns, name, value))
                 {
                     return false;
@@ -200,7 +206,7 @@ internal sealed class Fragment : IDisposable
         }
         
         // Create new column
-        if (AddColumn(name, parquetType, FindUniqueName(name)) is { } newColumn)
+        if (AddColumn(name, parquetType) is { } newColumn)
         {
             columns[newColumn] = value;
             return true;
@@ -209,17 +215,14 @@ internal sealed class Fragment : IDisposable
         return false;
     }
 
-    private ColumnData? AddColumn(string name, Type type, string? uniqueName = null)
+    private ColumnData? AddColumn(string name, Type type)
     {
         if (!CanEdit)
         {
             return null;
         }
 
-        if (uniqueName == null)
-        {
-            uniqueName = FindUniqueName(name);
-        }
+        string uniqueName = FindUniqueName(name);
 
         if (!_cache.TryGetValue(name, out List<ColumnData>? columns))
         {
@@ -229,7 +232,6 @@ internal sealed class Fragment : IDisposable
         ColumnData data = new ColumnData(uniqueName, name, type, RowGroupSize, _cacheSize);
         columns.Add(data);
         _columns.Add(data);
-        UpdateMappings();
         return data;
     }
 
@@ -270,7 +272,6 @@ internal sealed class Fragment : IDisposable
             .Skip(startIndex)
             .Concat(Enumerable.Repeat<object?>(null, Math.Max(count + startIndex - values.Length, 0)))
             .Take(count);
-        Type valueType = values.GetType().GetElementType()!;
         vals = column.ParquetType == typeof(string) ? vals.Select(o => o?.ToString()) : vals;
         Array.Copy(vals.ToArray(), 0, column.Data, column.Count, count);
         column.Count += count;
@@ -299,6 +300,7 @@ internal sealed class Fragment : IDisposable
     {
         if (CanEdit)
         {
+            UpdateMappings();
             _schema = new ParquetSchema(_columns.Select(cd => cd.GetField()));
             _writer = ParquetWriter.CreateAsync(_schema, _stream, _options.ParquetOptions).Result;
             _writer.CompressionMethod = _options.CompressionMethod;

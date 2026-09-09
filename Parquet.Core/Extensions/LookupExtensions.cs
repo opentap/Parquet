@@ -11,7 +11,7 @@ internal static class LookupExtensions
         return lookup.ToDictionary(keySelector, i => valueSelector(i).ToList());
     }
 
-    internal static void Add<TKey, TValue>(this Dictionary<TKey, List<TValue>> dict, TKey key, TValue value) where TKey : notnull
+    internal static void Append<TKey, TValue>(this Dictionary<TKey, List<TValue>> dict, TKey key, TValue value) where TKey : notnull
     {
         if (!dict.TryGetValue(key, out List<TValue>? list))
         {
