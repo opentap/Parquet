@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using OpenTap.Plugins.Parquet.Core.Extensions;
 
 namespace OpenTap.Plugins.Parquet.Core;
 
@@ -57,13 +58,30 @@ public sealed class ParquetFile : IDisposable
     /// <param name="results">A dictionary containing the results of the step, to look them up by their column names.</param>
     public void AddResultRow(string resultName, string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters, Dictionary<string, Array> results)
     {
-        parameters = parameters.ToDictionary(kvp => "Step/" + kvp.Key, kvp => kvp.Value);
-        parameters.Add("ResultName", resultName);
-        parameters.Add("Guid", runId);
-        parameters.Add("Parent", parentId);
-        parameters.Add("StepId", stepId);
-        results = results.ToDictionary(kvp => "Result/" + kvp.Key, kvp => kvp.Value);
-        while (!CurrentFragment.AddRows(parameters, results))
+        AddResultRow(resultName, runId, parentId, stepId, parameters.ToLookup(kvp => kvp.Key, kvp => kvp.Value), results.ToLookup(kvp => kvp.Key, kvp => kvp.Value));
+    }
+
+    /// <summary>
+    /// Add a result row to the file, allowing several parameters or results to share a name.
+    /// Each value gets its own column; the second and later values sharing a name are stored under a
+    /// generated column name, which the "Mappings" metadata maps back to the published name.
+    /// </summary>
+    /// <param name="resultName">The name of the results.</param>
+    /// <param name="runId">The id of the step run that created the results.</param>
+    /// <param name="parentId">The id of the parent to the step run that created the results.</param>
+    /// <param name="stepId">The id of the test step within the test plan.</param>
+    /// <param name="parameters">The parameters of the step, grouped by their name.</param>
+    /// <param name="results">The results of the step, grouped by their column name.</param>
+    public void AddResultRow(string resultName, string runId, string parentId, string stepId,
+        ILookup<string, IConvertible> parameters, ILookup<string, Array> results)
+    {
+        var parametersDict = parameters.ToDictLookup(g => "Step/" + g.Key, g => g);
+        parametersDict.Append("ResultName", resultName);
+        parametersDict.Append("Guid", runId);
+        parametersDict.Append("Parent", parentId);
+        parametersDict.Append("StepId", stepId);
+        var resultsDict = results.ToDictLookup(g => "Result/" + g.Key, g => g);
+        while (!CurrentFragment.AddRows(parametersDict, resultsDict))
         {
             AddFragment();
         }
@@ -78,11 +96,25 @@ public sealed class ParquetFile : IDisposable
     /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
     public void AddStepRow(string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters)
     {
-        parameters = parameters.ToDictionary(kvp => "Step/" + kvp.Key, kvp => kvp.Value);
-        parameters.Add("Guid", runId);
-        parameters.Add("Parent", parentId);
-        parameters.Add("StepId", stepId);
-        while (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
+        AddStepRow(runId, parentId, stepId, parameters.ToLookup(kvp => kvp.Key, kvp => kvp.Value));
+    }
+
+    /// <summary>
+    /// Add a step row without results to the file, allowing several parameters to share a name.
+    /// Each value gets its own column; the second and later values sharing a name are stored under a
+    /// generated column name, which the "Mappings" metadata maps back to the published name.
+    /// </summary>
+    /// <param name="runId">The id of the step run.</param>
+    /// <param name="parentId">The id of the parent to the step run.</param>
+    /// <param name="stepId">The id of the test step within the test plan.</param>
+    /// <param name="parameters">The parameters of the step, grouped by their name.</param>
+    public void AddStepRow(string runId, string parentId, string stepId, ILookup<string, IConvertible> parameters)
+    {
+        var parametersDict = parameters.ToDictLookup(g => "Step/" + g.Key, g => g);
+        parametersDict.Append("Guid", runId);
+        parametersDict.Append("Parent", parentId);
+        parametersDict.Append("StepId", stepId);
+        while (!CurrentFragment.AddRows(parametersDict, new Dictionary<string, List<Array>>()))
         {
             AddFragment();
         }
@@ -95,9 +127,21 @@ public sealed class ParquetFile : IDisposable
     /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
     public void AddPlanRow(string planId, Dictionary<string, IConvertible> parameters)
     {
-        parameters = parameters.ToDictionary(kvp => "Plan/" + kvp.Key, kvp => kvp.Value);
-        parameters.Add("Guid", planId);
-        while (!CurrentFragment.AddRows(parameters, new Dictionary<string, Array>()))
+        AddPlanRow(planId, parameters.ToLookup(kvp => kvp.Key, kvp => kvp.Value));
+    }
+
+    /// <summary>
+    /// Add a plan row to the file, allowing several parameters to share a name.
+    /// Each value gets its own column; the second and later values sharing a name are stored under a
+    /// generated column name, which the "Mappings" metadata maps back to the published name.
+    /// </summary>
+    /// <param name="planId">The id of the plan run.</param>
+    /// <param name="parameters">The parameters of the plan, grouped by their name.</param>
+    public void AddPlanRow(string planId, ILookup<string, IConvertible> parameters)
+    {
+        var parametersDict = parameters.ToDictLookup(g => "Plan/" + g.Key, g => g);
+        parametersDict.Append("Guid", planId);
+        while (!CurrentFragment.AddRows(parametersDict, new Dictionary<string, List<Array>>()))
         {
             AddFragment();
         }

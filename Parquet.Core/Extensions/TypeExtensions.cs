@@ -19,4 +19,9 @@ internal static class TypeExtensions
     {
         return Nullable.GetUnderlyingType(type) ?? type;
     }
+
+    internal static Type GetElementTypeOrSelf(this Type type)
+    {
+        return type.GetElementType() ?? type;
+    }
 }
