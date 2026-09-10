@@ -37,9 +37,9 @@ internal class ExtensionTests
 
         var results = table.GetResults();
             
-        Assert.That(results["Col1"], Is.EquivalentTo(Enumerable.Range(0, 10)));
-        Assert.That(results["Col2"], Is.EquivalentTo(Enumerable.Repeat(0, 10).ToArray()));
-        Assert.That(results["Col3"], Is.EquivalentTo(Enumerable.Range(0, 10).Reverse().ToArray()));
+        Assert.That(results["Col1"].Single(), Is.EquivalentTo(Enumerable.Range(0, 10)));
+        Assert.That(results["Col2"].Single(), Is.EquivalentTo(Enumerable.Repeat(0, 10).ToArray()));
+        Assert.That(results["Col3"].Single(), Is.EquivalentTo(Enumerable.Range(0, 10).Reverse().ToArray()));
     }
 
     [Test]
@@ -59,13 +59,13 @@ internal class ExtensionTests
 
         var parameters = testStepRun.GetParameters();
             
-        Assert.That(parameters["Group1/Param1"], Is.EqualTo(0));
-        Assert.That(parameters["Group1/Param2"], Is.EqualTo(3.14));
-        Assert.That(parameters["Group1/Param3"], Is.EqualTo(3.14f));
-        Assert.That(parameters["Group1/Param4"], Is.EqualTo("value"));
-        Assert.That(parameters["Group2/Param1"], Is.EqualTo(0));
-        Assert.That(parameters["Group2/Param2"], Is.EqualTo(3.14));
-        Assert.That(parameters["Group2/Param3"], Is.EqualTo(3.14f));
-        Assert.That(parameters["Group2/Param4"], Is.EqualTo("value"));
+        Assert.That(parameters["Group1/Param1"].Single(), Is.EqualTo(0));
+        Assert.That(parameters["Group1/Param2"].Single(), Is.EqualTo(3.14));
+        Assert.That(parameters["Group1/Param3"].Single(), Is.EqualTo(3.14f));
+        Assert.That(parameters["Group1/Param4"].Single(), Is.EqualTo("value"));
+        Assert.That(parameters["Group2/Param1"].Single(), Is.EqualTo(0));
+        Assert.That(parameters["Group2/Param2"].Single(), Is.EqualTo(3.14));
+        Assert.That(parameters["Group2/Param3"].Single(), Is.EqualTo(3.14f));
+        Assert.That(parameters["Group2/Param4"].Single(), Is.EqualTo("value"));
     }
 }
