@@ -6,6 +6,11 @@ namespace Parquet.Tests;
 
 public class ParquetFileTests
 {
+    private static ILookup<string, IConvertible> Lookup(params (string Key, IConvertible Value)[] entries)
+    {
+        return entries.ToLookup(x => x.Key, x => x.Value);
+    }
+
     [Test]
     public async Task ResultRowTest()
     {
@@ -16,19 +21,19 @@ public class ParquetFileTests
         string parent = Guid.NewGuid().ToString();
         string stepId = Guid.NewGuid().ToString();
 
-        Dictionary<string, IConvertible> parameters = new Dictionary<string, IConvertible>()
+        ILookup<string, IConvertible> parameters = new (string Key, IConvertible Value)[]
         {
-            { "Param1", "Param1" },
-            { "Param2", 2 },
-            { "Param3", 3.141 },
-            { "Group/Param", true },
-        };
-        Dictionary<string, Array> results = new Dictionary<string, Array>()
+            ("Param1", "Param1"),
+            ("Param2", 2),
+            ("Param3", 3.141),
+            ("Group/Param", true),
+        }.ToLookup(x => x.Key, x => x.Value);
+        ILookup<string, Array> results = new (string Key, Array Value)[]
         {
-            { "Value1", Enumerable.Repeat("test", 50).ToArray() },
-            { "Value2", Enumerable.Range(0, 50).ToArray() },
-            { "Value3", Enumerable.Repeat<string?>(null, 50).ToArray() }
-        };
+            ("Value1", Enumerable.Repeat("test", 50).ToArray()),
+            ("Value2", Enumerable.Range(0, 50).ToArray()),
+            ("Value3", Enumerable.Repeat<string?>(null, 50).ToArray()),
+        }.ToLookup(x => x.Key, x => x.Value);
 
         ParquetFile file = new ParquetFile(path);
         file.AddResultRow(resultName, guid, parent, stepId, parameters, results);
@@ -65,13 +70,13 @@ public class ParquetFileTests
         string parent = Guid.NewGuid().ToString();
         string stepId = Guid.NewGuid().ToString();
 
-        Dictionary<string, IConvertible> parameters = new Dictionary<string, IConvertible>()
+        ILookup<string, IConvertible> parameters = new (string Key, IConvertible Value)[]
         {
-            { "Param1", "Param1" },
-            { "Param2", 2 },
-            { "Param3", 3.141 },
-            { "Group/Param", true },
-        };
+            ("Param1", "Param1"),
+            ("Param2", 2),
+            ("Param3", 3.141),
+            ("Group/Param", true),
+        }.ToLookup(x => x.Key, x => x.Value);
 
         ParquetFile file = new ParquetFile(path);
         file.AddStepRow(guid, parent, stepId, parameters);
@@ -100,13 +105,13 @@ public class ParquetFileTests
         
         string guid = Guid.NewGuid().ToString();
 
-        Dictionary<string, IConvertible> parameters = new Dictionary<string, IConvertible>()
+        ILookup<string, IConvertible> parameters = new (string Key, IConvertible Value)[]
         {
-            { "Param1", "Param1" },
-            { "Param2", 2 },
-            { "Param3", 3.141 },
-            { "Group/Param", true },
-        };
+            ("Param1", "Param1"),
+            ("Param2", 2),
+            ("Param3", 3.141),
+            ("Group/Param", true),
+        }.ToLookup(x => x.Key, x => x.Value);
 
         ParquetFile file = new ParquetFile(path);
         file.AddPlanRow(guid, parameters);
@@ -283,8 +288,8 @@ public class ParquetFileTests
         string path = Path.GetTempFileName();
 
         ParquetFile file = new ParquetFile(path, new Options { RowGroupSize = 1 });
-        file.AddStepRow("g1", "", "", new Dictionary<string, IConvertible> { { "a", 1 } });
-        file.AddStepRow("g2", "", "", new Dictionary<string, IConvertible> { { "a", "text" } });
+        file.AddStepRow("g1", "", "", Lookup(("a", (IConvertible)1)));
+        file.AddStepRow("g2", "", "", Lookup(("a", (IConvertible)"text")));
         Assert.That(file.FragmentCount, Is.GreaterThan(1),
             "A type collision after a flush should force a second fragment.");
         file.Dispose();
@@ -355,14 +360,8 @@ public class ParquetFileTests
         string guid1 = Guid.NewGuid().ToString();
         string guid2 = Guid.NewGuid().ToString();
 
-        Dictionary<string, IConvertible> parameters1 = new Dictionary<string, IConvertible>()
-        {
-            { "Param1", "Param1" },
-        };
-        Dictionary<string, IConvertible> parameters2 = new Dictionary<string, IConvertible>()
-        {
-            { "Param2", "Param2" },
-        };
+        ILookup<string, IConvertible> parameters1 = Lookup(("Param1", (IConvertible)"Param1"));
+        ILookup<string, IConvertible> parameters2 = Lookup(("Param2", (IConvertible)"Param2"));
 
         ParquetFile file = new ParquetFile(path, new Options()
         {

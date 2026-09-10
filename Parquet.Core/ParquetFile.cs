@@ -48,20 +48,6 @@ public sealed class ParquetFile : IDisposable
     }
     
     /// <summary>
-    /// Add a result row to the file.
-    /// </summary>
-    /// <param name="resultName">The name of the results.</param>
-    /// <param name="runId">The id of the step run that created the results.</param>
-    /// <param name="parentId">The id of the parent to the step run that created the results.</param>
-    /// <param name="stepId">The id of the test step within the test plan.</param>
-    /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
-    /// <param name="results">A dictionary containing the results of the step, to look them up by their column names.</param>
-    public void AddResultRow(string resultName, string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters, Dictionary<string, Array> results)
-    {
-        AddResultRow(resultName, runId, parentId, stepId, parameters.ToLookup(kvp => kvp.Key, kvp => kvp.Value), results.ToLookup(kvp => kvp.Key, kvp => kvp.Value));
-    }
-
-    /// <summary>
     /// Add a result row to the file, allowing several parameters or results to share a name.
     /// Each value gets its own column; the second and later values sharing a name are stored under a
     /// generated column name, which the "Mappings" metadata maps back to the published name.
@@ -88,18 +74,6 @@ public sealed class ParquetFile : IDisposable
     }
     
     /// <summary>
-    /// Add a step row without results to the file.
-    /// </summary>
-    /// <param name="runId">The id of the step run.</param>
-    /// <param name="parentId">The id of the parent to the step run.</param>
-    /// <param name="stepId">The id of the test step within the test plan.</param>
-    /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
-    public void AddStepRow(string runId, string parentId, string stepId, Dictionary<string, IConvertible> parameters)
-    {
-        AddStepRow(runId, parentId, stepId, parameters.ToLookup(kvp => kvp.Key, kvp => kvp.Value));
-    }
-
-    /// <summary>
     /// Add a step row without results to the file, allowing several parameters to share a name.
     /// Each value gets its own column; the second and later values sharing a name are stored under a
     /// generated column name, which the "Mappings" metadata maps back to the published name.
@@ -118,16 +92,6 @@ public sealed class ParquetFile : IDisposable
         {
             AddFragment();
         }
-    }
-
-    /// <summary>
-    /// Add a plan row to the file.
-    /// </summary>
-    /// <param name="planId">The id of the plan run.</param>
-    /// <param name="parameters">A dictionary containing the parameters of the step, to look them up by their name.</param>
-    public void AddPlanRow(string planId, Dictionary<string, IConvertible> parameters)
-    {
-        AddPlanRow(planId, parameters.ToLookup(kvp => kvp.Key, kvp => kvp.Value));
     }
 
     /// <summary>
