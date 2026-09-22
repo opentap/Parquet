@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace OpenTap.Plugins.Parquet.Extensions;
@@ -7,10 +6,10 @@ namespace OpenTap.Plugins.Parquet.Extensions;
 internal static class TestRunExtensions
 {
 
-    internal static Dictionary<string, IConvertible> GetParameters(this TestRun run)
+    internal static ILookup<string, IConvertible> GetParameters(this TestRun run)
     {
         return run.Parameters
-            .ToDictionary(CreateName, p => p.Value);
+            .ToLookup(CreateName, p => p.Value);
 
         static string CreateName(ResultParameter parameter)
         {

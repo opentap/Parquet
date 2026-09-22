@@ -2,16 +2,23 @@
 
     <PropertyGroup>
         <TargetFramework>net9.0</TargetFramework>
-        <TargetName>OpenTap.Plugins.Parquet.Core</TargetName>
+        <AssemblyName>OpenTap.Plugins.Parquet.Core</AssemblyName>
         <RootNamespace>OpenTap.Plugins.Parquet.Core</RootNamespace>
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
-        <AssemblyVersion>$(GitVersion)</AssemblyVersion>
+        <AssemblyVersion>$(ShortVersion)</AssemblyVersion>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <LongVersion Condition="'$(LongVersion)' == ''">0.1.0</LongVersion>
+        <Company>Keysight Technologies, Inc.</Company>
+        <Authors>OpenTAP Team</Authors>
+        <Version>$(LongVersion)</Version>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <RepositoryUrl>https://github.com/opentap/Parquet</RepositoryUrl>
+        <PackageDescription>Parquet is a fast and efficient storage format similar to CSV but with more structured column based data.</PackageDescription>
+        <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Parquet.Net" Version="5.2.0" />
-        <PackageReference Include="Snappier" Version="1.2.0" />
+        <PackageReference Include="Parquet.Net" Version="5.6.1" />
         <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
             <_Parameter1>Parquet.Tests</_Parameter1>
         </AssemblyAttribute>

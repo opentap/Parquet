@@ -5,7 +5,7 @@
     <RootNamespace>OpenTap.Plugins.Parquet</RootNamespace>
     <DebugWith>Editor</DebugWith>
     <Nullable>enable</Nullable>
-    <AssemblyVersion>$(GitVersion)</AssemblyVersion>
+    <AssemblyVersion>$(ShortVersion)</AssemblyVersion>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
@@ -24,8 +24,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="OpenTAP" Version="9.29.1" />
-    <PackageReference Include="Parquet.Net" Version="5.2.0" />
-    <PackageReference Include="Snappier" Version="1.2.0" />
+    <PackageReference Include="Parquet.Net" Version="5.6.1" />
     <ProjectReference Include="..\Parquet.Core\Parquet.Core.csproj" />
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
         <_Parameter1>Parquet.Tests</_Parameter1>

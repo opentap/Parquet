@@ -8,10 +8,20 @@ internal static class TypeExtensions
     internal static Type AsNullable(this Type type)
     {
         // Use Nullable.GetUnderlyingType() to remove the Nullable<T> wrapper if type is already nullable.
-        type = Nullable.GetUnderlyingType(type) ?? type; // avoid type becoming null
+        type = GetNullableUnderlyingType(type);
         if (type.IsValueType)
             return typeof(Nullable<>).MakeGenericType(type);
         else
             return type;
+    }
+
+    internal static Type GetNullableUnderlyingType(this Type type)
+    {
+        return Nullable.GetUnderlyingType(type) ?? type;
+    }
+
+    internal static Type GetElementTypeOrSelf(this Type type)
+    {
+        return type.GetElementType() ?? type;
     }
 }

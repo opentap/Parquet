@@ -9,7 +9,6 @@ using OpenTap.Plugins.Parquet.Core.Extensions;
 using Parquet;
 using Parquet.Data;
 using Parquet.Schema;
-using ColumnKey = (string name, System.Type type);
 
 namespace OpenTap.Plugins.Parquet.Core;
 
@@ -24,33 +23,28 @@ internal sealed class Fragment : IDisposable
         
         public Array Data { get; }
         public int Count { get; set; } = 0;
-
-        public DataField Field => _field ??= new DataField(UniqueName, ParquetType, true);
         public Type ParquetType { get; }
-        public Type Type { get; }
         public string Name { get; }
         public string UniqueName { get; private set; }
 
         public ColumnData(string uniqueName, string name, Type type, int size, int existingCacheSize)
         {
-            Data = Array.CreateInstance(type.AsNullable(), size);
+            ParquetType = GetParquetType(type);
+            Data = Array.CreateInstance(ParquetType, size);
             Count = existingCacheSize;
             _field = null;
-            ParquetType = GetParquetType(type);
-            Type = type;
             UniqueName = uniqueName;
             Name = name;
         }
-
-        public bool TrySetName(string name)
+        
+        public DataField GetField()
         {
-            if (_field is not null)
-            {
-                return false;
-            }
+            return _field ??= new DataField(UniqueName, ParquetType, true);
+        }
 
-            UniqueName = name;
-            return true;
+        public override string ToString()
+        {
+            return UniqueName;
         }
     }
 
@@ -60,8 +54,8 @@ internal sealed class Fragment : IDisposable
     private ParquetSchema? _schema;
     private int _cacheSize;
     private readonly List<ColumnData> _columns;
-    private readonly HashSet<string> _uniqueColumnNames = new();
-    private readonly Dictionary<string, Dictionary<Type, ColumnData>> _cache;
+    private readonly HashSet<string> _uniqueColumnNames;
+    private readonly Dictionary<string, List<ColumnData>> _cache;
     private readonly Dictionary<string, string> _metadata;
 
     private int RowGroupSize => _options.RowGroupSize;
@@ -77,6 +71,7 @@ internal sealed class Fragment : IDisposable
         }
         _stream = File.Open(Path, FileMode.Create, FileAccess.Write);
         _columns = new();
+        _uniqueColumnNames = new();
         _cache = new();
         _metadata = new();
         AddColumn("ResultName", typeof(string));
@@ -98,6 +93,7 @@ internal sealed class Fragment : IDisposable
         }
         _stream = File.Open(Path, FileMode.Create, FileAccess.Write);
         _columns = fragment._columns;
+        _uniqueColumnNames = fragment._uniqueColumnNames;
         _cache = fragment._cache;
         _metadata = fragment._metadata;
     }
@@ -113,24 +109,25 @@ internal sealed class Fragment : IDisposable
     {
         Dictionary<string, string> mappings = _cache
             .Values
-            .Where(d => d.Count > 1)
-            .SelectMany(d => d.Values)
+            .SelectMany(c => c)
+            .Where(c => c.UniqueName != c.Name)
             .ToDictionary(cd => cd.UniqueName, cd => cd.Name);
         SetMetadata("Mappings", JsonSerializer.Serialize(mappings));
     }
     
     public string Path { get; }
 
-    public bool AddRows(Dictionary<string, IConvertible> values,
-        Dictionary<string, Array> arrayValues)
+    public bool AddRows(Dictionary<string, List<IConvertible>> values,
+        Dictionary<string, List<Array>> arrayValues)
     {
-        if (!FitsInCache(values.Select(kvp => (kvp.Key, kvp.Value.GetType()))) ||
-            !FitsInCache(arrayValues.Select(kvp => (kvp.Key, kvp.Value.GetType().GetElementType()!))))
+        Dictionary<ColumnData, object> columns = new();
+        if (!TryClaimColumns(columns, values.Select(kvp => (kvp.Key, kvp.Value))) ||
+            !TryClaimColumns(columns, arrayValues.Select(kvp => (kvp.Key, kvp.Value))))
         {
             return false;
         }
         
-        int resultCount = Math.Max(1, arrayValues.Any() ? arrayValues.Max(d => d.Value.Length) : 1);
+        int resultCount = Math.Max(1, arrayValues.Any() ? arrayValues.SelectMany(a => a.Value).DefaultIfEmpty(new int[0]).Max(a => a.Length) : 1);
         int startIndex = 0;
         while (startIndex < resultCount)
         {
@@ -138,13 +135,14 @@ internal sealed class Fragment : IDisposable
 
             foreach (ColumnData column in _columns)
             {
-                if (arrayValues.TryGetValue(column.Name, out Array? valueArr) && column.Type.IsAssignableFrom(valueArr.GetType().GetElementType()))
+                object? obj = columns.GetValueOrDefault(column);
+                if (obj is Array arr)
                 {
-                    AddToColumn(column, valueArr, startIndex, count);
+                    AddToColumn(column, arr, startIndex, count);
                 }
-                else if (values.TryGetValue(column.Name, out IConvertible? value))
+                else if (obj is IConvertible convertible)
                 {
-                    AddToColumn(column, value, count);
+                    AddToColumn(column, convertible, count);
                 }
                 else
                 {
@@ -162,61 +160,77 @@ internal sealed class Fragment : IDisposable
         return true;
     }
 
-    private bool FitsInCache(IEnumerable<ColumnKey> fields)
+    private bool TryClaimColumns<T>(Dictionary<ColumnData, object> columns, IEnumerable<(string name, List<T> value)> fields)
     {
-        // TODO: Test this function, rename- and add-column.
-        foreach ((string name, Type type) in fields)
+        foreach ((string name, List<T> values) in fields)
         {
-            if (!FitsInCache(name, type))
+            foreach (T value in values)
             {
-                return false;
+                if (value is null)
+                {
+                    continue;
+                }
+
+                if (!TryClaimColumn(columns, name, value))
+                {
+                    return false;
+                }
             }
         }
 
         return true;
     }
 
-    private bool FitsInCache(string name, Type type)
+    private bool TryClaimColumn(Dictionary<ColumnData, object> columns, string name, object value)
     {
-        if (!_cache.TryGetValue(name, out Dictionary<Type, ColumnData>? typeCache))
+        Type type = value.GetType().GetElementTypeOrSelf().GetNullableUnderlyingType();
+        // Add new columns
+        if (!_cache.TryGetValue(name, out List<ColumnData>? cachedColumns))
         {
-            return AddColumn(name, type) is not null;
-        }
-
-        if (!typeCache.TryGetValue(type, out _))
-        {
-            if (typeCache.Count == 1)
+            if (AddColumn(name, type) is { } column)
             {
-                ColumnData data = typeCache.Values.First();
-                data.TrySetName(FindUniqueName(data.Name + "/" + data.Type.Name));
+                columns[column] = value;
+                return true;
             }
-            bool val = AddColumn(name, type, FindUniqueName(name + "/" + type.Name)) is not null;
-            UpdateMappings();
-            return val;
+
+            return false;
+        }
+        
+        // Are there any compatible with our parquet type
+        Type parquetType = GetParquetType(type);
+        List<ColumnData> typedColumns = cachedColumns.Where(c => c.ParquetType == parquetType).ToList();
+        if (typedColumns.FirstOrDefault(c => !columns.ContainsKey(c)) is { } existingColumn)
+        {
+            columns[existingColumn] = value;
+            return true;
+        }
+        
+        // Create new column
+        if (AddColumn(name, parquetType) is { } newColumn)
+        {
+            columns[newColumn] = value;
+            return true;
         }
 
-        return true;
+        return false;
     }
 
-    private ColumnData? AddColumn(string name, Type type, string? uniqueName = null)
+    private ColumnData? AddColumn(string name, Type type)
     {
         if (!CanEdit)
         {
             return null;
         }
 
-        if (uniqueName == null)
-        {
-            uniqueName = FindUniqueName(name);
-        }
+        string uniqueName = FindUniqueName(name);
 
-        if (!_cache.TryGetValue(name, out Dictionary<Type, ColumnData>? typeCache))
+        if (!_cache.TryGetValue(name, out List<ColumnData>? columns))
         {
-            typeCache = new();
-            _cache[name] = typeCache;
+            columns = new();
+            _cache[name] = columns;
         }
-        ColumnData data = new ColumnData(uniqueName, name, GetParquetType(type), RowGroupSize, _cacheSize);
-        typeCache.Add(type, data);
+        ColumnData data = new ColumnData(uniqueName, name, type, RowGroupSize, _cacheSize);
+        columns.Add(data);
         _columns.Add(data);
         return data;
     }
@@ -224,10 +238,10 @@ internal sealed class Fragment : IDisposable
     private string FindUniqueName(string name)
     {
         string str = name;
-        int attempt = 0;
+        int attempt = 1;
         while (_uniqueColumnNames.Contains(str))
         {
-            str = name + attempt;
+            str = name + "/" + attempt;
             attempt += 1;
     
             if (attempt == int.MaxValue)
@@ -236,15 +250,14 @@ internal sealed class Fragment : IDisposable
             }
         }
     
-        _uniqueColumnNames.Add(name);
+        _uniqueColumnNames.Add(str);
     
         return str;
     }
 
-    private void AddToColumn(ColumnData column, IConvertible? value, int count){
-        if (column.ParquetType == typeof(string) && value?.GetType() != typeof(string)){
-            value = value?.ToString(CultureInfo.InvariantCulture);
-        }
+    private void AddToColumn(ColumnData column, IConvertible? value, int count)
+    {
+        value = column.ParquetType == typeof(string) ? value?.ToString(CultureInfo.InvariantCulture) : value;
 
         for (int i = 0; i < count; i++)
         {
@@ -253,13 +266,14 @@ internal sealed class Fragment : IDisposable
         column.Count += count;
     }
 
-    private void AddToColumn(ColumnData column, Array values, int startIndex, int count){
-        values = values.Cast<object?>()
+    private void AddToColumn(ColumnData column, Array values, int startIndex, int count)
+    {
+        IEnumerable<object?> vals = values.Cast<object?>()
             .Skip(startIndex)
             .Concat(Enumerable.Repeat<object?>(null, Math.Max(count + startIndex - values.Length, 0)))
-            .Take(count)
-            .ToArray();
-        Array.Copy(values, 0, column.Data, column.Count, count);
+            .Take(count);
+        vals = column.ParquetType == typeof(string) ? vals.Select(o => o?.ToString()) : vals;
+        Array.Copy(vals.ToArray(), 0, column.Data, column.Count, count);
         column.Count += count;
     }
 
@@ -286,7 +300,8 @@ internal sealed class Fragment : IDisposable
     {
         if (CanEdit)
         {
-            _schema = new ParquetSchema(_columns.Select(cd => cd.Field));
+            UpdateMappings();
+            _schema = new ParquetSchema(_columns.Select(cd => cd.GetField()));
             _writer = ParquetWriter.CreateAsync(_schema, _stream, _options.ParquetOptions).Result;
             _writer.CompressionMethod = _options.CompressionMethod;
             _writer.CompressionLevel = _options.CompressionLevel;
@@ -310,7 +325,7 @@ internal sealed class Fragment : IDisposable
             using ParquetRowGroupWriter writer = _writer!.CreateRowGroup();
             foreach (ColumnData cd in _columns)
             {
-                DataField field = cd.Field;
+                DataField field = cd.GetField();
                 DataColumn column = GetColumn(columns, field, groupReader);
                 writer.WriteColumnAsync(column).Wait();
             }
@@ -357,11 +372,14 @@ internal sealed class Fragment : IDisposable
     
     private static Type GetParquetType(Type type)
     {
-        if (type.IsEnum)
+        type = type.GetNullableUnderlyingType();
+        if (ShouldConvertToString(type))
         {
             return typeof(string);
         }
 
-        return type;
+        return type.AsNullable();
     }
+
+    internal static bool ShouldConvertToString(Type type) => type.IsEnum || type == typeof(object);
 }

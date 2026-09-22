@@ -6,29 +6,34 @@ namespace Parquet.Tests;
 
 public class ParquetFileTests
 {
+    private static ILookup<string, IConvertible> Lookup(params (string Key, IConvertible Value)[] entries)
+    {
+        return entries.ToLookup(x => x.Key, x => x.Value);
+    }
+
     [Test]
     public async Task ResultRowTest()
     {
-        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(ResultRowTest)}.parquet";
+        string path = Path.GetTempFileName();
         
         string resultName = "Test";
         string guid = Guid.NewGuid().ToString();
         string parent = Guid.NewGuid().ToString();
         string stepId = Guid.NewGuid().ToString();
 
-        Dictionary<string, IConvertible> parameters = new Dictionary<string, IConvertible>()
+        ILookup<string, IConvertible> parameters = new (string Key, IConvertible Value)[]
         {
-            { "Param1", "Param1" },
-            { "Param2", 2 },
-            { "Param3", 3.141 },
-            { "Group/Param", true },
-        };
-        Dictionary<string, Array> results = new Dictionary<string, Array>()
+            ("Param1", "Param1"),
+            ("Param2", 2),
+            ("Param3", 3.141),
+            ("Group/Param", true),
+        }.ToLookup(x => x.Key, x => x.Value);
+        ILookup<string, Array> results = new (string Key, Array Value)[]
         {
-            { "Value1", Enumerable.Repeat("test", 50).ToArray() },
-            { "Value2", Enumerable.Range(0, 50).ToArray() },
-            { "Value3", Enumerable.Repeat<string?>(null, 50).ToArray() }
-        };
+            ("Value1", Enumerable.Repeat("test", 50).ToArray()),
+            ("Value2", Enumerable.Range(0, 50).ToArray()),
+            ("Value3", Enumerable.Repeat<string?>(null, 50).ToArray()),
+        }.ToLookup(x => x.Key, x => x.Value);
 
         ParquetFile file = new ParquetFile(path);
         file.AddResultRow(resultName, guid, parent, stepId, parameters, results);
@@ -59,19 +64,19 @@ public class ParquetFileTests
     [Test]
     public async Task StepRowTest()
     {
-        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(StepRowTest)}.parquet";
+        string path = Path.GetTempFileName();
         
         string guid = Guid.NewGuid().ToString();
         string parent = Guid.NewGuid().ToString();
         string stepId = Guid.NewGuid().ToString();
 
-        Dictionary<string, IConvertible> parameters = new Dictionary<string, IConvertible>()
+        ILookup<string, IConvertible> parameters = new (string Key, IConvertible Value)[]
         {
-            { "Param1", "Param1" },
-            { "Param2", 2 },
-            { "Param3", 3.141 },
-            { "Group/Param", true },
-        };
+            ("Param1", "Param1"),
+            ("Param2", 2),
+            ("Param3", 3.141),
+            ("Group/Param", true),
+        }.ToLookup(x => x.Key, x => x.Value);
 
         ParquetFile file = new ParquetFile(path);
         file.AddStepRow(guid, parent, stepId, parameters);
@@ -96,17 +101,17 @@ public class ParquetFileTests
     [Test]
     public async Task PlanRowTest()
     {
-        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(PlanRowTest)}.parquet";
+        string path = Path.GetTempFileName();
         
         string guid = Guid.NewGuid().ToString();
 
-        Dictionary<string, IConvertible> parameters = new Dictionary<string, IConvertible>()
+        ILookup<string, IConvertible> parameters = new (string Key, IConvertible Value)[]
         {
-            { "Param1", "Param1" },
-            { "Param2", 2 },
-            { "Param3", 3.141 },
-            { "Group/Param", true },
-        };
+            ("Param1", "Param1"),
+            ("Param2", 2),
+            ("Param3", 3.141),
+            ("Group/Param", true),
+        }.ToLookup(x => x.Key, x => x.Value);
 
         ParquetFile file = new ParquetFile(path);
         file.AddPlanRow(guid, parameters);
@@ -128,25 +133,235 @@ public class ParquetFileTests
         Assert.That(reader.ReadRow(0), Is.EquivalentTo(values));
     }
     
+    [Test]
+    public async Task DuplicateResultAndParameterNamesTest()
+    {
+        string path = Path.GetTempFileName();
+
+        string resultName = "Test";
+        string guid = Guid.NewGuid().ToString();
+        string parent = Guid.NewGuid().ToString();
+        string stepId = Guid.NewGuid().ToString();
+
+        // Two parameters named "P" and two result columns named "V" published together.
+        ILookup<string, IConvertible> parameters = new (string Key, IConvertible Value)[]
+        {
+            ("P", 1),
+            ("P", 2),
+        }.ToLookup(x => x.Key, x => x.Value);
+        ILookup<string, Array> results = new (string Key, Array Value)[]
+        {
+            ("V", Enumerable.Range(0, 5).ToArray()),
+            ("V", Enumerable.Range(100, 5).ToArray()),
+        }.ToLookup(x => x.Key, x => x.Value);
+
+        ParquetFile file = new ParquetFile(path);
+        file.AddResultRow(resultName, guid, parent, stepId, parameters, results);
+        file.Dispose();
+
+        Assert.True(System.IO.File.Exists(path));
+
+        var reader = await Reader.CreateAsync(path);
+        string[] fields =
+        [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Step/P", "Step/P/1", "Result/V", "Result/V/1"
+        ];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields),
+            "Duplicate parameter and result names should be prefixed and split into indexed columns.");
+        Assert.That(reader.Count, Is.EqualTo(5));
+        for (int i = 0; i < 5; i++)
+        {
+            Assert.That(reader.ReadCell(i, "Step/P"), Is.EqualTo(1), $"row {i}: first parameter value.");
+            Assert.That(reader.ReadCell(i, "Step/P/1"), Is.EqualTo(2), $"row {i}: second parameter value.");
+            Assert.That(reader.ReadCell(i, "Result/V"), Is.EqualTo(i), $"row {i}: first result column.");
+            Assert.That(reader.ReadCell(i, "Result/V/1"), Is.EqualTo(100 + i), $"row {i}: second result column.");
+        }
+
+        var mappings = new Dictionary<string, string>
+        {
+            ["Step/P/1"] = "Step/P",
+            ["Result/V/1"] = "Result/V",
+        };
+        Assert.That(reader.CustomMetadata["Mappings"], Is.EqualTo(System.Text.Json.JsonSerializer.Serialize(mappings)),
+            "Both indexed columns should map back to their prefixed display names.");
+    }
+
+    [Test]
+    public async Task DuplicatePlanParameterNamesTest()
+    {
+        string path = Path.GetTempFileName();
+
+        string guid = Guid.NewGuid().ToString();
+
+        ILookup<string, IConvertible> parameters = new (string Key, IConvertible Value)[]
+        {
+            ("Operator", "Alice"),
+            ("Operator", "Bob"),
+            ("Operator", "Carol"),
+        }.ToLookup(x => x.Key, x => x.Value);
+
+        ParquetFile file = new ParquetFile(path);
+        file.AddPlanRow(guid, parameters);
+        file.Dispose();
+
+        var reader = await Reader.CreateAsync(path);
+        string[] fields =
+        [
+            "ResultName", "Guid", "Parent", "StepId",
+            "Plan/Operator", "Plan/Operator/1", "Plan/Operator/2"
+        ];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields),
+            "Three plan parameters with the same name should become sequential indexed columns.");
+        Assert.That(reader.Count, Is.EqualTo(1));
+        Assert.That(reader.ReadCell(0, "Plan/Operator"), Is.EqualTo("Alice"));
+        Assert.That(reader.ReadCell(0, "Plan/Operator/1"), Is.EqualTo("Bob"));
+        Assert.That(reader.ReadCell(0, "Plan/Operator/2"), Is.EqualTo("Carol"));
+
+        var mappings = new Dictionary<string, string>
+        {
+            ["Plan/Operator/1"] = "Plan/Operator",
+            ["Plan/Operator/2"] = "Plan/Operator",
+        };
+        Assert.That(reader.CustomMetadata["Mappings"], Is.EqualTo(System.Text.Json.JsonSerializer.Serialize(mappings)));
+    }
+
+    [Test]
+    public async Task DuplicateResultNamesSurviveFragmentMergeTest()
+    {
+        string path = Path.GetTempFileName();
+
+        string guid1 = Guid.NewGuid().ToString();
+        string guid2 = Guid.NewGuid().ToString();
+
+        // Call 1 splits duplicate "V" into "V"/"V/1". Call 2 introduces a brand new column, which
+        // changes the schema and forces a second fragment. The merge must keep the split column names
+        // from the first fragment intact - the whole point of never renaming existing columns.
+        ParquetFile file = new ParquetFile(path, new Options { RowGroupSize = 1 });
+
+        ILookup<string, Array> results1 = new (string Key, Array Value)[]
+        {
+            ("V", new[] { 1 }),
+            ("V", new[] { 10 }),
+        }.ToLookup(x => x.Key, x => x.Value);
+        ILookup<string, Array> results2 = new (string Key, Array Value)[]
+        {
+            ("W", new[] { 2 }),
+        }.ToLookup(x => x.Key, x => x.Value);
+
+        var noParams = Array.Empty<(string, IConvertible)>().ToLookup(x => x.Item1, x => x.Item2);
+        file.AddResultRow("R", guid1, "", "", noParams, results1);
+        file.AddResultRow("R", guid2, "", "", noParams, results2);
+        Assert.That(file.FragmentCount, Is.GreaterThan(1), "A new column in call 2 should produce a second fragment.");
+        file.Dispose();
+
+        var reader = await Reader.CreateAsync(path);
+        string[] fields = ["ResultName", "Guid", "Parent", "StepId", "Result/V", "Result/V/1", "Result/W"];
+        Assert.That(reader.Schema.Fields.Select(f => f.Name), Is.EquivalentTo(fields),
+            "Split duplicate-result columns must retain the same names after merging fragments.");
+        Assert.That(reader.Count, Is.EqualTo(2));
+        Assert.That(reader.ReadCell(0, "Result/V"), Is.EqualTo(1), "fragment 1 first column.");
+        Assert.That(reader.ReadCell(0, "Result/V/1"), Is.EqualTo(10), "fragment 1 second column.");
+        Assert.That(reader.ReadCell(0, "Result/W"), Is.EqualTo(null), "column W absent in fragment 1.");
+        Assert.That(reader.ReadCell(1, "Result/V"), Is.EqualTo(null), "V absent in fragment 2.");
+        Assert.That(reader.ReadCell(1, "Result/V/1"), Is.EqualTo(null), "V/1 absent in fragment 2.");
+        Assert.That(reader.ReadCell(1, "Result/W"), Is.EqualTo(2), "fragment 2 new column.");
+
+        var mappings = new Dictionary<string, string> { ["Result/V/1"] = "Result/V" };
+        Assert.That(reader.CustomMetadata["Mappings"], Is.EqualTo(System.Text.Json.JsonSerializer.Serialize(mappings)),
+            "Mapping for the split column must survive the merge.");
+    }
+
+    private static List<(string display, object? value)> ReadRowByDisplayName(Reader reader, long row)
+    {
+        var mappings = System.Text.Json.JsonSerializer
+            .Deserialize<Dictionary<string, string>>(reader.CustomMetadata["Mappings"])!;
+        return reader.Schema.DataFields.Select(f => f.Name)
+            .Zip(reader.ReadRow(row))
+            .Select(p => (mappings.TryGetValue(p.First, out string? d) ? d : p.First, p.Second))
+            .ToList();
+    }
+
+    [Test]
+    public async Task TypeCollisionResolvedInDerivedFragmentTest()
+    {
+        string path = Path.GetTempFileName();
+
+        ParquetFile file = new ParquetFile(path, new Options { RowGroupSize = 1 });
+        file.AddStepRow("g1", "", "", Lookup(("a", (IConvertible)1)));
+        file.AddStepRow("g2", "", "", Lookup(("a", (IConvertible)"text")));
+        Assert.That(file.FragmentCount, Is.GreaterThan(1),
+            "A type collision after a flush should force a second fragment.");
+        file.Dispose();
+
+        var reader = await Reader.CreateAsync(path);
+        var names = reader.Schema.Fields.Select(f => f.Name).ToList();
+        Assert.That(names.Distinct().Count(), Is.EqualTo(names.Count),
+            $"No two physical columns may share a name, got: {string.Join(", ", names)}");
+        Assert.That(names.Count, Is.EqualTo(6),
+            "Expected the four default columns plus one int and one string column for 'a'.");
+        Assert.That(reader.Count, Is.EqualTo(2));
+
+        var row0 = ReadRowByDisplayName(reader, 0);
+        Assert.That(row0.Where(c => c.display == "Step/a").Select(c => c.value),
+            Is.EquivalentTo(new object?[] { 1, null }), "row 0 should hold the int value only.");
+        var row1 = ReadRowByDisplayName(reader, 1);
+        Assert.That(row1.Where(c => c.display == "Step/a").Select(c => c.value),
+            Is.EquivalentTo(new object?[] { null, "text" }), "row 1 should hold the string value only.");
+    }
+
+    [Test]
+    public async Task ExtraDuplicateResolvedInDerivedFragmentTest()
+    {
+        string path = Path.GetTempFileName();
+
+        var noParams = Array.Empty<(string, IConvertible)>().ToLookup(x => x.Item1, x => x.Item2);
+        ILookup<string, Array> results1 = new (string Key, Array Value)[]
+        {
+            ("V", new[] { 1 }),
+        }.ToLookup(x => x.Key, x => x.Value);
+        ILookup<string, Array> results2 = new (string Key, Array Value)[]
+        {
+            ("V", new[] { 2 }),
+            ("V", new[] { 20 }),
+        }.ToLookup(x => x.Key, x => x.Value);
+
+        ParquetFile file = new ParquetFile(path, new Options { RowGroupSize = 1 });
+        file.AddResultRow("R", "g1", "", "", noParams, results1);
+        file.AddResultRow("R", "g2", "", "", noParams, results2);
+        Assert.That(file.FragmentCount, Is.GreaterThan(1),
+            "An extra duplicate after a flush should force a second fragment.");
+        file.Dispose();
+
+        var reader = await Reader.CreateAsync(path);
+        var names = reader.Schema.Fields.Select(f => f.Name).ToList();
+        Assert.That(names.Distinct().Count(), Is.EqualTo(names.Count),
+            $"No two physical columns may share a name, got: {string.Join(", ", names)}");
+        Assert.That(names.Count, Is.EqualTo(6),
+            "Expected the four default columns plus two columns for 'Result/V'.");
+        Assert.That(reader.Count, Is.EqualTo(2));
+
+        var row0 = ReadRowByDisplayName(reader, 0);
+        Assert.That(row0.Where(c => c.display == "Result/V").Select(c => c.value),
+            Is.EquivalentTo(new object?[] { 1, null }), "call 1 published a single 'V'.");
+        var row1 = ReadRowByDisplayName(reader, 1);
+        Assert.That(row1.Where(c => c.display == "Result/V").Select(c => c.value),
+            Is.EquivalentTo(new object?[] { 2, 20 }), "call 2 published both 'V' values into separate columns.");
+    }
+
     // TODO: Insert tests with file merging.
     // Test one: Can files be merged at all
     // Test two: Do files keep their order when merged
     [Test]
     public async Task FileMerging()
     {
-        string path = $"Tests/{nameof(ParquetFileTests)}/{nameof(FileMerging)}.parquet";
+        string path = Path.GetTempFileName();
         
         string guid1 = Guid.NewGuid().ToString();
         string guid2 = Guid.NewGuid().ToString();
 
-        Dictionary<string, IConvertible> parameters1 = new Dictionary<string, IConvertible>()
-        {
-            { "Param1", "Param1" },
-        };
-        Dictionary<string, IConvertible> parameters2 = new Dictionary<string, IConvertible>()
-        {
-            { "Param2", "Param2" },
-        };
+        ILookup<string, IConvertible> parameters1 = Lookup(("Param1", (IConvertible)"Param1"));
+        ILookup<string, IConvertible> parameters2 = Lookup(("Param2", (IConvertible)"Param2"));
 
         ParquetFile file = new ParquetFile(path, new Options()
         {
